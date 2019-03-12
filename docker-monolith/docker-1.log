@@ -1,0 +1,11 @@
+REPOSITORY            	TAG                 IMAGE ID            CREATED             SIZE
+reddit                	latest              e1bcceb96ada        9 hours ago         688MB
+stv2509/otus-reddit   	1.0                 e1bcceb96ada        9 hours ago         688MB
+<none>                	<none>              35bc275d8362        9 hours ago         623MB
+cicd-buzz             	latest              9d9896b9d14e        4 weeks ago         75.5MB
+stv2509/cicd-buzz     	<none>              9d9896b9d14e        4 weeks ago         75.5MB
+ubuntu                	18.04               47b19964fb50        4 weeks ago         88.1MB
+alpine                	latest              caf27325b298        5 weeks ago         5.53MB
+ubuntu                	16.04               7e87e2b3bf7a        6 weeks ago         117MB
+tehbilly/htop         	latest              4acd2b4de755        11 months ago       6.91MB
+stv2509/ubuntu-tmp-file	latest              f4ca319c3163        2 minutes ago       117MB
