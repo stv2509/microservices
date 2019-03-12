@@ -1,5 +1,7 @@
 # microservices
 
+[![Build Status](https://travis-ci.org/stv2509/microservices.svg?branch=master)](https://travis-ci.org/stv2509/microservices)
+
 Создать образ на GCP:
 
 ```bash
