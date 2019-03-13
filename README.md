@@ -12,26 +12,31 @@ docker-machine create --driver google \
 --google-machine-image $(gcloud compute images list --filter ubuntu-1604-lts --uri) \
 docker-host
 ```
-* Приложение монолит  docker-monolith/ :
 
 <details>
-  <summary>Дирректория docker-monolith/</summary>
-- Dockerfile - текстовое описание нашего образа
-- mongod.conf - преподготовленный конфиг для mongodb
-- db_config - содержит переменную со ссылкой на mongodb
-- start.sh - скрипт запуска приложения
-- default-allow-9292.sh - скрипт для проверки firewall
+  <summary>Приложение монолит docker-monolith/ :</summary>
+  
+* Dockerfile - текстовое описание нашего образа
+
+* mongod.conf - преподготовленный конфиг для mongodb
+
+* db_config - содержит переменную со ссылкой на mongodb
+
+* start.sh - скрипт запуска приложения
+
+* default-allow-9292.sh - скрипт для проверки firewall
+
+</details>
+
+#
+
 <details>
-  <summary>Дирректория docker-monolith/</summary>
+<summary>Приложение из нескольких компонентов src/ :</summary>
+  
+* post-py - сервис отвечающий за написание постов
+  
+* comment - сервис отвечающий за написание комментариев
 
-* Приложение из нескольких компонентов src/ :
+* ui - веб-интерфейс для других сервисов
 
-<details>
-  <summary>Дирректория src/</summary>
-- post-py - сервис отвечающий за написание постов
-- comment - сервис отвечающий за написание комментариев
-- ui - веб-интерфейс для других сервисов
-
-<details>
-  <summary>Дирректория src/</summary>
-
+</details>
