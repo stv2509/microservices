@@ -2,7 +2,8 @@
 
 [![Build Status](https://travis-ci.org/stv2509/microservices.svg?branch=master)](https://travis-ci.org/stv2509/microservices)
 
-* Создать образ на GCP:
+<details>
+  <summary>Создать образ на GCP: </summary>
 
 ```bash
 docker-machine create --driver google \
@@ -12,6 +13,9 @@ docker-machine create --driver google \
 --google-machine-image $(gcloud compute images list --filter ubuntu-1604-lts --uri) \
 docker-host
 ```
+</details>
+
+##
 
 <details>
   <summary>Приложение монолит docker-monolith/ :</summary>
