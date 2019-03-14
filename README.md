@@ -49,15 +49,17 @@ docker-host
 
 <details>
 <summary>Команды docker для компонентов :</summary>
+
+#
 * Создание контейнеров:
-```bash
+```
 docker pull mongo:latest 
 docker build -t stv2509/post:2.0 ./post-py 
 docker build -t stv2509/comment:2.0 ./comment 
 docker build -t stv2509/ui:2.0 ./ui
 ```
 * Создание сети
-```bash
+```
 docker network create reddit
 docker run -d --network=reddit --network-alias=post_db --network-alias=comment_db mongo:latest
 docker run -d --network=reddit --network-alias=post stv2509/post:2.0
@@ -65,7 +67,7 @@ docker run -d --network=reddit --network-alias=comment stv2509/comment:2.0
 docker run -d --network=reddit -p 9292:9292 stv2509/ui:2.0
 ```
 * Запуск контейнеров
-```bash
+```
 docker volume create reddit_db
 
 docker run -d --network=reddit -v reddit_db:/data/db --network-alias=post_db --network-alias=comment_db mongo:latest
@@ -74,4 +76,3 @@ docker run -d --network=reddit --network-alias=comment stv2509/comment:2.0
 docker run -d --network=reddit -p 9292:9292 stv2509/ui:2.0
 ```
 </details>
-
