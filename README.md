@@ -2,6 +2,10 @@
 
 [![Build Status](https://travis-ci.org/stv2509/microservices.svg?branch=master)](https://travis-ci.org/stv2509/microservices)
 
+#
+[Драйверы которые поддерживает docker-machine](https://docs.docker.com/machine/drivers/)
+#
+
 <details>
   <summary>Создать образ на GCP: </summary>
 
