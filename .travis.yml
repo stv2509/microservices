@@ -1,4 +1,4 @@
-dist: bionic
+dist: alpine
 sudo: required
 language: bash
 before_install:
