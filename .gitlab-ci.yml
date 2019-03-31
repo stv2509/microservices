@@ -30,7 +30,11 @@ test_integration_job:
   script:
     - echo 'Testing 2'
 
+<<<<<<< HEAD
 deploy_dev_job:
+=======
+deploy_job:
+>>>>>>> bc47bbd506f51b4ec918f8a7b6bab464e2d3a341
   stage: review
   script:
     - echo 'Deploy'
