@@ -6,7 +6,7 @@ variable sshuser {
   description = "SSH USER"
 }
 
-variable app_disk_image {
-  description = "Disk image for gitlab server"
-  default     = "ubuntu-1804-bionic-v20190320"
+variable disk_image_family {
+  description = "Disk image family for gitlab server"
+  default     = "ubuntu-1804-lts"
 }

@@ -4,10 +4,10 @@ provider "google" {
 }
 
 module "app" {
-  source          = "../modules/app"
-  public_key_path = "${var.public_key_path}"
-  app_disk_image  = "${var.app_disk_image}"
-  sshuser         = "${var.sshuser}"
+  source            = "../modules/app"
+  public_key_path   = "${var.public_key_path}"
+  disk_image_family = "${var.disk_image_family}"
+  sshuser           = "${var.sshuser}"
 }
 
 module "vpc" {

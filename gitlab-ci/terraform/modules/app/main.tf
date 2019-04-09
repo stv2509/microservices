@@ -6,7 +6,7 @@ resource "google_compute_instance" "app" {
 
   boot_disk {
     initialize_params {
-      image = "${var.app_disk_image}"
+      image = "${var.disk_image_family}"
       size  = "100"
     }
   }
@@ -24,6 +24,12 @@ resource "google_compute_instance" "app" {
   }
 
   metadata {
-    sshKeys = "${var.sshuser}:${file(var.public_key_path)}"
+    ssh-keys = "${var.sshuser}:${file(var.public_key_path)}"
   }
+
+provisioner "remote-exec" {
+  inline = [
+    "sudo ln -s /usr/bin/python3 /usr/bin/python",
+  ]
+}
 }

@@ -1,8 +1,9 @@
 #!/bin/bash
 
-exec 1> ../files/docker-compose.yml
+exec 1> docker-compose.yml
 
 printf "
+---
 version: '3.5'
 services:
   web:
@@ -11,7 +12,7 @@ services:
     hostname: 'gitlab.example.com'
     environment:
       GITLAB_OMNIBUS_CONFIG: |
-        external_url 'http://$(terraform output gitlab_external_ip)'
+          external_url 'http://$(terraform output -state="/vagrant_data/microservices/gitlab-ci/terraform/stage/terraform.tfstate" gitlab_external_ip)'
     ports:
       - '80:80'
       - '443:443'

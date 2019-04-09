@@ -1,0 +1,32 @@
+---
+# tasks file for gitlab-ci/
+
+- name: "Create gitlab-ci directory"
+  file:
+    path: "{{ item }}"
+    state: directory
+  with_items:
+    - /srv/gitlab/config
+    - /srv/gitlab/data
+    - /srv/gitlab/logs
+
+- name: "Run docker-compose.sh"
+  local_action: "shell bash docker-compose.sh"
+  args:
+    chdir: /vagrant_data/microservices/gitlab-ci
+
+- name: "Copy docker-compose.yml to dst"
+  copy:
+    src: /vagrant_data/microservices/gitlab-ci/docker-compose.yml
+    dest: /srv/gitlab/docker-compose.yml
+
+- name: "Copy start-runner.sh to dst"
+  copy:
+    src: start-runner.sh
+    dest: /srv/gitlab/start-runner.sh
+    mode: 0755
+
+- name: "Star docker-compose gitlab-ci"
+  shell: "docker-compose up -d"
+  args:
+    chdir: /srv/gitlab
