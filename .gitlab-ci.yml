@@ -19,6 +19,10 @@ test_unit_job:
   stage: test
   services:
     - mongo:latest
+  before_script:
+    - cd reddit
+    - bundle update
+    - bundle install  
   script:
     - ruby simpletest.rb
 
