@@ -1,0 +1,8 @@
+plugin: gcp_compute
+projects:
+  - docker-236710
+regions:
+  - europe-west1
+filters: []
+auth_kind: serviceaccount
+service_account_file: /home/vagrant/docker-51f60f456601.json

@@ -1,3 +1,4 @@
+#!/usr/bin/python3
 import structlog
 from pymongo import MongoClient
 from pymongo.errors import ConnectionFailure

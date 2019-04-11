@@ -10,11 +10,6 @@ stages:
 variables:
   DATABASE_URL: 'mongodb://mongo/user_posts'
 
-before_script:
-  - cd reddit
-  - bundle install
-
-
 build_job:
   stage: build
   script:
@@ -24,6 +19,10 @@ test_unit_job:
   stage: test
   services:
     - mongo:latest
+  before_script:
+    - cd reddit
+    - bundle update
+    - bundle install  
   script:
     - ruby simpletest.rb
 
@@ -54,7 +53,15 @@ branch review:
 staging:
   stage: stage
   when: manual
+  image: python:2.7
   script:
+    - echo "deb http://packages.cloud.google.com/apt cloud-sdk-jessie main" | tee /etc/apt/sources.list.d/google-cloud-sdk.list
+    - curl https://packages.cloud.google.com/apt/doc/apt-key.gpg | apt-key add -
+    - apt-get update
+    - apt-get -qq -y install google-cloud-sdk
+    - echo $DEPLOY_KEY_FILE_PRODUCTION > /tmp/$CI_PIPELINE_ID.json
+    - gcloud auth activate-service-account --key-file /tmp/$CI_PIPELINE_ID.json
+    - gcloud --quiet --project $PROJECT_ID_PRODUCTION app deploy
     - echo 'Deploy'
   environment:
     name: stage
