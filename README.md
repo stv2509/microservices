@@ -189,3 +189,135 @@ docker run -d --network=reddit -p 9292:9292 stv2509/ui:2.0
     - ***docker-compose up -d -p new_project_name***
 	- ***docker-compose ps***
   - Параметризованные параметры хранятся в отдельном файл c расширением **src/.env**
+</p></details>
+  
+#  
+# Homework 18-19. Gitlab-ci-1
+
+- Подготовим инсталляцию Gitlab CI
+- Подготовим репозиторий с кодом приложения
+- Опишем для приложения этапы непрерывной интеграции
+
+### В процессе сделано:
+
+<details><p>
+
+- Создадим instance при помощи terraform
+  ```bash
+  cd gitlab-ci/terraform/stage
+  terraform apply
+  TERRAFORM_STAGE="/vagrant_data/microservices/gitlab-ci/terraform/stage"
+  export TERRAFORM_STAGE
+  ```
+- При помощи ansible установим docker и gitlab-ci
+  - для установки docker используем готовую роль **"geerlingguy.docker"**
+  - ansible запустит скрипт docker-compose.sh, кторый сгенерит файл docker-compose.yml, подставив ip-address из terraform
+  - установим gitlab-ci, при помощи shell-модуля, т.к. ansible не работает с версией "docker-compose > 0.19"
+  ```bash
+  cd gitlab-ci/ansible
+  ansible-playbook playbooks/gitlab-docker.yml
+  ```
+- Создадим группу "homework" и проект "example" в gitlab-ci, добавим в него новую ветку "gitlab-ci-1"
+```bash
+> git checkout -b gitlab-ci-1
+> git remote add gitlab http://\<your-vm-ip\>/homework/example.git
+> git push gitlab gitlab-ci-1
+```
+- Добавим в репозиторий файл ".gitlab-ci.yml"
+- Запустим Runner и зарегистрируем его в интерактивном режиме
+  - *http://\<your-vm-ip\>/ -> Settings -> CI/CD -> Runners settings*
+  - *$ /srv/gitlab/start-runner.sh*
+
+</p></details>
+  
+#  
+# Homework 20. Gitlab CI for continuous delivery
+
+- Расширим существующий пайплайн в Gitlab CI
+- Определим окружения
+- Создадим новый проект на gitlab "example2"
+
+### В процессе сделано:
+
+<details><p>
+
+- В связи с нехваткой времени задачи с \*\* были временно пропущены
+
+</p></details>
+
+#  
+# Homework 21. Prometheus - Monitoring system & time series database
+
+- Prometheus: запуск, конфигурация, знакомство с Web UI
+- Мониторинг состояния микросервисов
+- Сбор метрик хоста с использованием экспортера
+
+
+### В процессе сделано:
+<details><p>
+
+- Создадим правило фаервола для Prometheus и Puma:
+  ```bash
+  $ gcloud compute firewall-rules create prometheus-default --allow tcp:9090
+  $ gcloud compute firewall-rules create puma-default --allow tcp:9292
+  ```
+- [Создадим Docker хост в GCE и запустим Prometheus](https://gist.githubusercontent.com/stv2509/b0894c38002903781bd3e6147f064bda/raw/cd10974d96f2d0c81a3cc7b171f52d78f411dec3/docker-machine-prometeus)
+- Проверим работу Prometheus:
+  - ***http://\<your-vm-ip\>:9090***
+- Определим простой конфигурационный файл для сбора метрик с наших микросервисов:
+  - **monitoring/prometheus/prometheus.yml**
+- Создадим свой Docker образ prometheus:
+  ```bash
+  $ cd monitoring/prometheus/
+  $ export USER_NAME=username
+  $ docker build -t $USER_NAME/prometheus .
+  ```
+- Создадим образы микросервисов:
+  ```bash
+  $ cd src/*
+  /src/ui $ bash docker_build.sh
+  /src/post-py $ bash docker_build.sh
+  /src/comment $ bash docker_build.sh
+  ```
+- Запустим наш Prometheus совместно с микросервисами:
+  - **cd docker/**
+  - **docker-compose up -d**
+- Посмотрим список endpoint-ов, с которых собирает информацию Prometheus:
+  - ***http://\<your-vm-ip\>:9090/targets***
+- Состояние сервиса UI
+  - В веб интерфейсе Prometheus выполните поиск по названию метрики *ui_health*
+  - Остановим post сервис
+    - **$ docker-compose stop post**
+  - Посмотрим, не случилось ли чего плохого с сервисами, от которых зависит UI сервис. Наберем в строке выражений *ui_health_* и Prometheus нам предложит дополнить названия метрик.
+    - *ui_health_comment_availability* - с сервисом все впорядке
+    - *ui_health_post_availability* - с post сервисом все плох
+  - Проблему мы обнаружили. Поднимем post сервис:
+    - **docker-compose start post**
+- **Exporters** - Программа, которая делает метрики доступными для сбора Prometheus
+- Воспользуемся **Node Exporters** для сбора информации о работе Docker хоста
+- Чтобы сказать Prometheus следить за еще одним сервисом, нам нужно добавить информацию о нем в конфиг **monitoring/prometheus/prometheus.yml:**
+  ```bash
+  scrape_configs:
+  ...
+  - job_name: 'node'
+    static_configs:
+      - targets:
+        - 'node-exporter:9100'
+  ```
+- Соберем новый Docker для Prometheus:
+  - **monitoring/prometheus $ docker build -t $USER_NAME/prometheus .**
+- Пересоздадим наши сервисы
+  ```bash
+  $ docker-compose down
+  $ docker-compose up -d
+  ```
+- Отправим собранные вами образы на DockerHub:
+  ```bash
+  $ docker login
+  Login Succeeded
+  $ docker push $USER_NAME/ui
+  $ docker push $USER_NAME/comment
+  $ docker push $USER_NAME/post
+  $ docker push $USER_NAME/prometheus
+  ```
+</p></details>  
