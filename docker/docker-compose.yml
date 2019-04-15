@@ -12,21 +12,21 @@ services:
           - post_db
 
   ui:
-    image: ${USERNAME}/ui:${TAG}
+    image: ${USER_NAME}/ui:${TAG}
     ports:
       - ${ext_port}:${int_port}/tcp
     networks:
       - redditnet
 
   post:
-    image: ${USERNAME}/post:$TAG
+    image: ${USER_NAME}/post:$TAG
     networks:
       redditnet:
         aliases:
           - post
 
   comment:
-    image: ${USERNAME}/comment:$TAG
+    image: ${USER_NAME}/comment:$TAG
     networks:
       redditnet:
         aliases:
