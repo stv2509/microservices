@@ -424,5 +424,4 @@ docker run -d --network=reddit -p 9292:9292 stv2509/ui:2.0
   $ docker push $USER_NAME/post
   $ docker push $USER_NAME/prometheus
   ```
-</p></details>
-	
+</p></details>	
