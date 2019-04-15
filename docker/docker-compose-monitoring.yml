@@ -28,8 +28,45 @@ services:
       - '--path.sysfs=/host/sys'
       - '--collector.filesystem.ignored-mount-points="^/(sys|proc|dev|host|etc)($$|/)"'
 
+  cadvisor:
+    image: google/cadvisor:v0.29.0
+    networks:
+      - redditnet
+    volumes:
+      - '/:/rootfs:ro'
+      - '/var/run:/var/run:rw'
+      - '/sys:/sys:ro'
+      - '/var/lib/docker/:/var/lib/docker:ro'
+    ports:
+      - '8080:8080'
+
+  grafana:
+    image: grafana/grafana:5.0.0
+    networks:
+      - redditnet
+    volumes:
+      - grafana_data:/var/lib/grafana
+    environment:
+      - GF_SECURITY_ADMIN_USER=admin
+      - GF_SECURITY_ADMIN_PASSWORD=secret
+    depends_on:
+      - prometheus
+    ports:
+      - 3000:3000
+
+  alertmanager:
+    image: ${USER_NAME}/alertmanager
+    networks:
+      - redditnet
+    command:
+      - '--config.file=/etc/alertmanager/config.yml'
+    ports:
+      - 9093:9093
+
 volumes:
   prometheus_data:
+  grafana_data:
+
 
 networks:
   redditnet:
