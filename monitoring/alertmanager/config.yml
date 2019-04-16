@@ -1,0 +1,9 @@
+global:
+  slack_api_url: 'https://hooks.slack.com/services/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'
+route:
+  receiver: 'slack-notifications'
+receivers:
+  - name: 'slack-notifications'
+    slack_configs:
+      - channel: '#network-engineers'
+

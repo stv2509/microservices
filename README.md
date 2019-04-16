@@ -320,4 +320,108 @@ docker run -d --network=reddit -p 9292:9292 stv2509/ui:2.0
   $ docker push $USER_NAME/post
   $ docker push $USER_NAME/prometheus
   ```
-</p></details>  
+</p></details>
+
+#  
+# Homework 22. Prometheus. cAdvisor. Grafana. AlertManager
+
+- Мониторинг Docker контейнеров
+- Визуализация метрик
+- Сбор метрик работы приложения и бизнес метрик
+- Настройка и проверка алертинга
+
+
+### В процессе сделано:
+<details><p>
+
+- Добавлен cAdvisor
+  - Добавим информацию о сервисе cAdvisor в конфигурацию Prometheus, чтобы он начал собирать метрики.
+  - Не забываем открывать порты для новых сервисов
+  - Пересоберем образ Prometheus с обновленной конфигурацией.
+  - Запустим сервисы:
+    ```bash
+    $ docker-compose up -d
+    $ docker-compose -f docker-compose-monitoring.yml up -d
+    ```
+  - Проверим работу cAdvisor:
+    - ***http://\<your-vm-ip\>:8080***
+  - Визуализация метрик. Grafana
+  - Добавим сервис Grafana в docker-compose-monitoring.yml
+    - **docker-compose -f docker-compose-monitoring.yml up -d grafana**
+    - ***http://\<your-vm-ip\>:3000***
+  - Перейдем на сайт [Grafana](https://grafana.com/dashboards) и выберем в качестве источника данных нашу систему мониторинга Prometheus dashboard *"Docker and system monitoring"* (cAdvisor/Prometheus)
+  - Нажмем загрузить *"json"* и сохраним его под именем **monitoring/grafana/dashboards/DockerMonitoring.json**
+  - Откроем вновь веб интерфейс Grafana и выберем импортировать шаблон. Должен появиться набор графиков с информацией о состоянии хостовой системы и работе контейнеров.
+- Сбор метрик приложения
+  - Добавим информацию о *"post"* сервисе в конфигурацию Prometheus (prometheus.yml)
+    ```bash
+	scrape_configs:
+    ...
+     - job_name: 'post'
+       static_configs:
+         - targets:
+           'post:5000'
+    ```
+  - Пересоздадим нашу Docker инфраструктуру мониторинга:
+  ```bash
+  $ docker-compose -f docker-compose-monitoring.yml down
+  $ docker-compose -f docker-compose-monitoring.yml up -d
+  ```
+- Сохраним изменения дашборда и эспортируем его в JSON файл, который загрузим на нашу локальную машину
+- "*Share dashboard*" -> "*Export*" -> "*Save to file*" -> **monitoring/grafana/dashboards/UI_Service_Monitoring.json**
+- **Alertmanager** - дополнительный компонент для системы мониторинга **Prometheus**
+  -  Соберем образ alertmanager:
+    - ***monitoring/alertmanager $ docker build -t $USER_NAME/alertmanager .***
+  - Добавим новый сервис в компоуз файл мониторинга
+  ```bash
+  services:
+  ...
+  alertmanager:
+    image: ${USER_NAME}/alertmanager
+    command:
+      - '--config.file=/etc/alertmanager/config.yml'
+    ports:
+      - 9093:9093
+  ```
+  - Создадим файл ***monitoring/prometheus/alerts.yml*** определим условия при которых должен срабатывать алерт и посылаться *Alertmanager-у*
+  - Добавим операцию копирования данного файла в ***monitoring/prometheus/Dockerfile:***
+    - **ADD alerts.yml /etc/prometheus/**
+  - Добавим информацию о правилах, в конфиг ***microservices/monitoring/prometheus/prometheus.yml***
+    ```bash
+	global:
+       scrape_interval: '5s'
+    ...
+    rule_files:
+      - 'alerts.yml'
+    alerting:
+      alertmanagers:
+        - scheme: http
+    static_configs:
+      - targets:
+        - 'alertmanager:9093'
+    ```
+  - Пересоберем образ Prometheus (cd monitoring/prometheus):
+    - **$ docker build -t $USER_NAME/prometheus .**
+  - Пересоздадим нашу Docker инфраструктуру мониторинга:
+  ```bash
+  $ docker-compose -f docker-compose-monitoring.yml down
+  $ docker-compose -f docker-compose-monitoring.yml up -d
+  ```
+  - Алерты можно посмотреть в веб интерфейсе Prometheus ***Alerts***
+  - Остановим один из сервисов и подождем одну минуту
+    - ***$ docker-compose stop post***
+  - В **slack** канал должно придти сообщение
+	```bash
+	AlertManager APP [1:35 PM]
+       [FIRING:1] InstanceDown (post:5000 post page)
+	```
+- Отправим собранные нами образы на DockerHub:
+  ```bash
+  $ docker login
+  Login Succeeded
+  $ docker push $USER_NAME/ui
+  $ docker push $USER_NAME/comment
+  $ docker push $USER_NAME/post
+  $ docker push $USER_NAME/prometheus
+  ```
+</p></details>	

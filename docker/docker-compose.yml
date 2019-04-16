@@ -12,56 +12,28 @@ services:
           - post_db
 
   ui:
-    image: ${USERNAME}/ui:${TAG}
+    image: ${USER_NAME}/ui:${TAG}
     ports:
       - ${ext_port}:${int_port}/tcp
     networks:
       - redditnet
 
   post:
-    image: ${USERNAME}/post:$TAG
+    image: ${USER_NAME}/post:$TAG
     networks:
       redditnet:
         aliases:
           - post
 
   comment:
-    image: ${USERNAME}/comment:$TAG
+    image: ${USER_NAME}/comment:$TAG
     networks:
       redditnet:
         aliases:
           - comment
 
-  prometheus:
-    image: ${USERNAME}/prometheus
-    networks:
-      - redditnet
-    ports:
-      - '9090:9090'
-    volumes:
-      - prometheus_data:/prometheus
-    command:
-      - '--config.file=/etc/prometheus/prometheus.yml'
-      - '--storage.tsdb.path=/prometheus'
-      - '--storage.tsdb.retention=1d'
-
-  node-exporter:
-    image: prom/node-exporter:v0.15.2
-    networks:
-      - redditnet
-    user: root
-    volumes:
-      - /proc:/host/proc:ro
-      - /sys:/host/sys:ro
-      - /:/rootfs:ro
-    command:
-      - '--path.procfs=/host/proc'
-      - '--path.sysfs=/host/sys'
-      - '--collector.filesystem.ignored-mount-points="^/(sys|proc|dev|host|etc)($$|/)"'
-
 volumes:
   post_db:
-  prometheus_data:
 
 networks:
   redditnet:
