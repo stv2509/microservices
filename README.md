@@ -349,6 +349,14 @@ docker run -d --network=reddit -p 9292:9292 stv2509/ui:2.0
   - Добавим сервис Grafana в docker-compose-monitoring.yml
     - **docker-compose -f docker-compose-monitoring.yml up -d grafana**
     - ***http://\<your-vm-ip\>:3000***
+	- добавим источник данных **"Add data source":**
+	```
+	Name:    Prometheus Server
+	Default: yes
+	Type:    Prometheus
+	URL:     http://prometeus:9090
+	Access:  proxy
+	```
   - Перейдем на сайт [Grafana](https://grafana.com/dashboards) и выберем в качестве источника данных нашу систему мониторинга Prometheus dashboard *"Docker and system monitoring"* (cAdvisor/Prometheus)
   - Нажмем загрузить *"json"* и сохраним его под именем **monitoring/grafana/dashboards/DockerMonitoring.json**
   - Откроем вновь веб интерфейс Grafana и выберем импортировать шаблон. Должен появиться набор графиков с информацией о состоянии хостовой системы и работе контейнеров.
@@ -424,4 +432,4 @@ docker run -d --network=reddit -p 9292:9292 stv2509/ui:2.0
   $ docker push $USER_NAME/post
   $ docker push $USER_NAME/prometheus
   ```
-</p></details>	
+</p></details>

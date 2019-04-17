@@ -5,4 +5,5 @@
 *.tfvars
 .terraform
 geerlingguy.docker
-#reddit
+reddit
+.env
