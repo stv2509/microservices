@@ -2,7 +2,7 @@ dist: alpine
 sudo: required
 language: bash
 before_install:
-- curl https://raw.githubusercontent.com/express42/otus-homeworks/2018-11/run.sh |  bash
+- curl https://raw.githubusercontent.com/express42/otus-homeworks/2019-02/run.sh |  bash
 notifications:
   slack:
     secure: zpYeRs6zE2+pOS6H4svoxkgf9O1nHSXiHEZgFyHlPvGi/TbKxNWVwDKMUb0MQzbzoZMofxU69Jl7AX3hIEZjrJY1buA79R/a1WhvwfWszXj0G1/7eT6ZdO1WK1BYTAo3nNghpjETcajYsXnt3Fwn67myda7xFDnu+rVpaGLYaON9iWe52MOlEj/LG2qbb4/lhCVHoAyViNGYxFdlaAVjFRYDKBWPpl3HbAl8Dxo+HVkhLn8Z/y6+pPnjcRGM13jx/vnqEIK/eRjEIIZUcdFKzNxBm5eHFqvDdYC215qJT+6cv4gFhQtWm2Q4bNkRgU9qv6OWFIUO7FHfyWPYVCPxtLuVi7Z3oy3sictihv0uuD6QAUg1Fv7pdP2fL2VRnFMhM745GXpF7RgvICgjwdSPR1MfzjNt0ygvgzNK1G1ppkqx0/YSy80HCA2GqOqTLjfJkOG+jip7udkVXbZ8nRTxYOTCYmJ/sicRWyJuXQH3wrPSeuO1+x5MPoZm5MLIqAEzV1GogNPZe5FaXPifB63zHxX01idlkww/3uaHayK1BthIKXGHOBaVollvZrhxbQWtCDze4Lfsblc437iT5GQpyG36JxNYFz2Rj/mWnppwMBZUHRVaxHx9InWx34dmryQ8s/hLIDIq0TPItxTCXh9QFycjh/Zb7GHE6Rg3YFlh4Uk=
