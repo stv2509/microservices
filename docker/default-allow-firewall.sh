@@ -37,3 +37,16 @@ else
  --direction=INGRESS
 	echo -e "\n#######- Installation completed -#######"
 fi
+
+
+if gcloud compute firewall-rules list --format=json | grep efkstack
+then
+	echo -e "\n #######- Firewall-rules \"default-allow-efkstack\" alredy install -#######\n\n"
+else
+	echo -e "#######- INSTALL default-allow-efkstak -#######\n"
+	gcloud compute firewall-rules create default-allow-efk \
+ --allow tcp:24224,tcp:9200,tcp:5601 --priority=65534 \
+ --description="Allows EFKStack connections" \
+ --direction=INGRESS
+	echo -e "\n#######- Installation completed -#######"
+fi

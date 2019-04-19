@@ -1,5 +1,7 @@
 [![Build Status](https://travis-ci.org/stv2509/microservices.svg?branch=master)](https://travis-ci.org/stv2509/microservices)
 
+## ШПАРГАЛКИ:
+<details><p>
 
 ## [Шпаргалка-1 с командами Docker](https://habr.com/ru/company/flant/blog/336654/)
 
@@ -8,6 +10,8 @@
 ## [Большой Docker FAQ: отвечаем на самые важные вопросы](https://xakep.ru/2015/06/04/docker-faq/)
 
 ## [Драйверы которые поддерживает docker-machine](https://docs.docker.com/machine/drivers/)
+
+# [Grok-patterns](https://github.com/logstash-plugins/logstash-patterns-core/blob/master/patterns/grok-patterns)
 
 #
 # GOOGLE_APPLICATION_CREDENTIALS
@@ -26,7 +30,8 @@ export GOOGLE_APPLICATION_CREDENTIALS="[PATH]"
 ```
 </p></details>
 
-#
+</p></details>
+
 #
 # Homework 14. Containerization technology. Introduction to Docker
 
@@ -432,4 +437,111 @@ docker run -d --network=reddit -p 9292:9292 stv2509/ui:2.0
   $ docker push $USER_NAME/post
   $ docker push $USER_NAME/prometheus
   ```
+</p></details>
+
+#  
+# Homework 23-24. Logging and Docker. EFK Stack
+
+- Сбор неструктурированных логов
+- Визуализация логов
+- Сбор структурированных логов
+
+### В процессе сделано:
+<details><p>
+
+- [Создадим Docker хост в GCE и настроим локальное окружение на работу с ним](https://gist.github.com/stv2509/4fe8a00f834e3baf1572b8724a2a9110)
+- Создадим образы микросервисов:
+  ```bash
+  $ cd src/*
+  /src/ui      $ bash docker_build.sh
+  /src/post-py $ bash docker_build.sh
+  /src/comment $ bash docker_build.sh
+  ```
+- Создадим отдельный compose-файл для нашей системы логирования **docker/docker-compose-logging.yml**
+- Создадим файл конфигурации для *Fluentd* **logging/fluentd/fluent.conf**
+- Создадим образ *Fluentd* с нужной нам конфигурацией **logging/fluentd/Dockerfile**
+  - **docker build -t $USER_NAME/fluentd .**
+- Запустите сервисы приложения из директории **docker/:**
+  - **$ docker-compose up -d**
+- Просмотрим логи post-сервиса:
+  - **docker/ $ docker-compose logs -f post**
+  - создадим несколько постов, понаблюдаем за терминалом
+- Отправка логов во *Fluentd*
+  - Определим драйвер логирования для сервиса *post* в **docker/docker-compose.yaml:**
+  ```bash
+  …
+  post:
+   …
+    logging:
+      driver: "fluentd"
+      options:
+        fluentd-address: localhost:24224
+        tag: service.post
+  ```
+- Запустим систему логирования и перезапустим сервисы:
+  ```bash
+  $ docker-compose -f docker-compose-logging.yml up -d
+  $ docker-compose down
+  $ docker-compose up -d
+  ```
+- Добавим фильтр для парсинга json логов **logging/fluentd/fluent.conf:**
+  ```bash
+  <source>
+    @type forward
+    port 24224
+    bind 0.0.0.0
+  </source>
+  
+  <filter service.post>
+    @type parser
+    format json
+    key_name log
+  </filter>
+  
+  <match *.**>
+    @type copy
+    ...
+  ```
+- Персоберем образ и перезапустим сервисы:
+  ```bash
+  logging/fluentd $ docker build -t $USER_NAME/fluentd .
+  docker/ $ docker-compose -f docker-compose-logging.yml up -d fluentd
+  ```
+- Создадим пару новых постов и поиск по ним в **Kibana**:
+  - search ***event: post_create***
+- Неструктурированные логи:
+  - Определим для ui сервиса драйвер для логирования *fluentd* в **docker/docker-compose.yml**
+  ```bash
+  ui:
+  ...
+    logging:
+      driver: "fluentd"
+      options:
+        fluentd-address: localhost:24224
+        tag: service.ui
+  ```
+  - Перезапустим ui сервис:
+  ```bash
+  $ docker-compose stop ui
+  $ docker-compose rm ui
+  $ docker-compose up -d
+  ```
+  - Добавим фильтр для парсинга логов ui используем **grok**-шаблоны **logging/fluentd/fluent.conf:**
+  ```bash
+  <filter service.ui>
+    @type parser
+    format grok
+    grok_pattern service=%{WORD:service} \| event=%{WORD:event} \| request_id=%{GREEDYDATA:request_id} \|
+    message='%{GREEDYDATA:message}'
+    key_name message
+    reserve_data true
+  </filter>
+  ```
+  - Перезапустим сервисы:
+  ```bash
+  logging/fluentd $ docker build -t $USER_NAME/fluentd .
+  $ docker-compose -f docker-compose-logging.yml down
+  $ docker-compose -f docker-compose-logging.yml up -d
+  ```
+  - Проверим результат.
 </p></details>

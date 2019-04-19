@@ -17,6 +17,11 @@ services:
       - ${ext_port}:${int_port}/tcp
     networks:
       - redditnet
+    logging:
+      driver: 'fluentd'
+      options:
+        fluentd-address: localhost:24224
+        tag: service.ui
 
   post:
     image: ${USER_NAME}/post:$TAG
@@ -24,6 +29,11 @@ services:
       redditnet:
         aliases:
           - post
+    logging:
+      driver: 'fluentd'
+      options:
+        fluentd-address: localhost:24224
+        tag: service.post
 
   comment:
     image: ${USER_NAME}/comment:$TAG
