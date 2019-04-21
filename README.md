@@ -545,3 +545,48 @@ docker run -d --network=reddit -p 9292:9292 stv2509/ui:2.0
   ```
   - Проверим результат.
 </p></details>
+
+#  
+# Homework 25. Introduction to Kubernetes
+
+- Разобрать на практике все компоненты Kubernetes, развернуть их вручную используя The Hard Way
+- Ознакомиться с описанием основных примитивов нашего приложения и его дальнейшим запуском в Kubernetes.
+
+### В процессе сделано:
+<details><p>
+
+- Создадим первый Deployment manifest **kubernetes/reddit/post-deployment.yml:**
+  ```bash
+  ---
+  apiVersion: apps/v1beta2
+  kind: Deployment
+  metadata:
+    name: post-deployment
+  spec:
+    replicas: 1
+    selector:
+      matchLabels:
+        app: post
+    template:
+      metadata:
+        name: post
+        labels:
+          app: post
+      spec:
+        containers:
+        - image: USER_NAME/post
+          name: post
+  ```
+- Пройдите [Kubernetes The Hard Way](https://github.com/kelseyhightower/kubernetes-the-hard-way)
+- Проверить, что **kubectl apply -f** проходит по созданным до этого deployment-ам (ui, post, mongo, comment) и поды запускаются:
+  ```bash
+  $ kubectl get pods -o wide
+  NAME                                  READY   STATUS    RESTARTS   AGE   IP           NODE       NOMINATED NODE
+  busybox-bd8fb7cbd-mpf5k               1/1     Running   0          59m   10.200.1.2   worker-1   <none>
+  comment-deployment-6df88f7fb8-7j5vt   1/1     Running   0          14m   10.200.2.3   worker-2   <none>
+  mongo-deployment-57b8d4d88c-ggx7n     1/1     Running   0          13m   10.200.2.4   worker-2   <none>
+  nginx-dbddb74b8-2vhxc                 1/1     Running   0          46m   10.200.1.3   worker-1   <none>
+  post-deployment-55bdc66fcd-rhjjw      1/1     Running   0          21m   10.200.0.3   worker-0   <none>
+  ui-deployment-795cdbb698-bn2s8        1/1     Running   0          14m   10.200.0.4   worker-0   <none>
+  ```
+</p></details>
