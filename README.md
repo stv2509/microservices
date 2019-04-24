@@ -599,6 +599,8 @@ docker run -d --network=reddit -p 9292:9292 stv2509/ui:2.0
 - Запустить reddit в Kubernetes
 
 ### В процессе сделано:
+
+- **Создание локального окружения для работы с Kubernetes:**
 <details><p>
 
 - Подготовим локальное окружение:
@@ -724,4 +726,73 @@ docker run -d --network=reddit -p 9292:9292 stv2509/ui:2.0
   -   Launching proxy ...
   -   Verifying proxy health ...
   http://127.0.0.1:3561/api/v1/namespaces/kube-system/services/http:kubernetes-dashboard:/proxy/
-  ```  
+  ```
+- **Namespace:**
+- Cоздадим свой Namespace **kubernetes/reddit/dev-namespace.yml**
+  - **$ kubectl apply -f dev-namespace.yml**
+- Запустим приложение в **dev** неймспейсе:
+  - **$ kubectl apply -n dev -f …**
+  - Если возник конфликт портов у ui-service, то убираем из описания значение **NodePort**
+- Смотрим результат:
+  - **$ minikube service ui -n dev**
+- Добавим информацию об окружении внутрь контейнера UI **kubernetes/reddit/ui-deployment.yml**:
+  ```bash
+  …
+  spec:
+    containers:
+    - image: USER_NAME/ui
+      name: ui
+      env:
+      - name: ENV
+        valueFrom:
+          fieldRef:
+            fieldPath: metadata.namespace
+  ```
+- Смотрим результат:
+  - **$ minikube service ui -n dev**
+  - В заголовке появиться **dev:** *"Microservices Reddit in* **dev** *ui-8644b898fd-h8wkm container"*
+</p></details>
+
+#
+
+- **Google Kubernetes Engine:**
+<details><p>
+
+- Зайдите в свою gcloud console, перейдите в *"kubernetes clusters"*
+- Нажмите *"создать Cluster"*
+- Жмем *"Создать"* и ждем, пока поднимется кластер
+- Подключимся к GKE для запуска нашего приложения:
+  - Нажмите *"Connect"* и скопируйте команду вида:
+  **$ gcloud container clusters get-credentials cluster-1 --zone us-central1-a --project docker-182508**
+  - Введите в консоли скопированную команду. В результате в файл **~/.kube/config** будут добавлены **user**, **cluster** и **context** для подключения к кластеру в **GKE.**
+  - Проверьте, что текущий контекст будет выставлен для подключения к этому кластеру
+    - **$ kubectl config current-context**
+- Запустим наше приложение в GKE:
+  - Создадим dev namespace
+    - **$ kubectl apply -f ./kubernetes/reddit/dev-namespace.yml**
+  - Задеплоим все компоненты приложения в namespace dev
+    - **$ kubectl apply -f ./kubernetes/reddit/ -n dev**
+- Создайте правила firewall и откройте порты **tcp:30000-32767** kubernetes для публикации сервисов
+- Посмотрим внешний IP-адрес любой ноды из кластера
+  ```bash
+   $ kubectl get nodes -o wide
+  NAME                                                STATUS   ROLES    AGE   VERSION           EXTERNAL-IP      
+  gke-standard-cluster-1-default-pool-3fc50298-2t9b   Ready    <none>   15m   v1.10.12-gke.14   35.195.212.157 
+  gke-standard-cluster-1-default-pool-3fc50298-mdls   Ready    <none>   17m   v1.10.12-gke.14   35.195.109.252
+  ```
+- Найдите порт публикации сервиса ui
+  ```bash
+  $ kubectl describe service ui -n dev | grep NodePort
+    Type: NodePort
+    NodePort: <unset> 31474/TCP
+  ```
+- Идем по адресу **http://\<node-ip\>:\<NodePort\>** наш сервис работает.
+- Запустим Dashboard для кластера GKE
+ - Kubernetes Engine -> Clusters -> EDIT -> Add-ons -> Kubernetes dashboard -> Enabled
+ - **$ kubectl proxy**
+ - Заходим по адресу *http://localhost:8001/ui* (Жмем "SKIP") или *http://localhost:8001/api/v1/namespaces/kube-system/services/https:kubernetes-dashboard:/proxy/#!/login*
+ - У dashboard не хватает прав, чтобы посмотреть на кластер, его не пускает **RBAC**
+ - Назначим нашему *Service Account* роль с достаточными правами на просмотр информации о кластере
+   - **$ kubectl create clusterrolebinding kubernetes-dashboard --clusterrole=cluster-admin --serviceaccount=kube-system:kubernetes-dashboard**
+ - Снова зайдем по адресу *http://localhost:8001/ui* - dashboard работает
+</p></details>
