@@ -547,7 +547,7 @@ docker run -d --network=reddit -p 9292:9292 stv2509/ui:2.0
 </p></details>
 
 #  
-# Homework 25. Introduction to Kubernetes
+# Homework 25-26. Introduction to Kubernetes
 
 - Разобрать на практике все компоненты Kubernetes, развернуть их вручную используя The Hard Way
 - Ознакомиться с описанием основных примитивов нашего приложения и его дальнейшим запуском в Kubernetes.
@@ -589,4 +589,210 @@ docker run -d --network=reddit -p 9292:9292 stv2509/ui:2.0
   post-deployment-55bdc66fcd-rhjjw      1/1     Running   0          21m   10.200.0.3   worker-0   <none>
   ui-deployment-795cdbb698-bn2s8        1/1     Running   0          14m   10.200.0.4   worker-0   <none>
   ```
+</p></details>
+
+#  
+# Homework 27. Kubernetes, Controllers, Security
+
+- Развернуть локальное окружение для работы с Kubernetes
+- Развернуть Kubernetes в GKE
+- Запустить reddit в Kubernetes
+
+### В процессе сделано:
+
+- **Создание локального окружения для работы с Kubernetes:**
+<details><p>
+
+- Подготовим локальное окружение:
+  - Установим **[kubectl](https://kubernetes.io/docs/tasks/tools/install-kubectl/)**
+  - Директории **~/.kube** - содержит служебную инфу для kubectl (конфиги, кеши, схемы API)
+  - Установим **[VirtualBox](https://www.virtualbox.org/wiki/Downloads)**
+  - Установим **[minikube](https://kubernetes.io/docs/tasks/tools/install-minikube/)**
+- Запустим наш Minukube-кластер:
+  - **$ minikube start --cpus 2 --memory 1024 --disk-size 10g**
+- Проверим, что кластер развернут:
+  ```bash
+  $ kubectl get nodes
+    NAME       STATUS    ROLES     AGE       VERSION
+    minikube   Ready     master    4m        v1.14.0
+  ```
+- Порядок конфигурирования **kubectl**:
+  - Создать cluster:
+    -  $ kubectl config set-cluster … **cluster_name**
+  - Создать данные пользователя (credentials)
+    - $ kubectl config set-credentials … **user_name**
+  - Создать контекст
+    - $ kubectl config set-context **context_name** --cluster=**cluster_name** --user=**user_name**
+  - Использовать контекст
+    - $ kubectl config use-context **context_name**
+  - Посмотреть текущий контекст
+  ```bash
+  $ kubectl config current-context
+    minikube
+  ```
+  - Посмотреть список всех контекстов
+  ```bash
+  $ kubectl config get-contexts
+  CURRENT       NAME                 CLUSTER                 AUTHINFO    NAMESPACE
+          kubernetes-the-hard-way   kubernetes-the-hard-way   admin
+    *     minikube                  minikube                  minikube
+  ```
+- Запустим приложение:
+  ```bash  
+  $ kubectl apply -f kubernetes/reddit/ui-deployment.yml
+  deployment.apps/ui created
+  ```
+- Пробросим сетевые порты POD-ов на локальную машину
+  ```bash
+  $ kubectl get pods --selector component=ui
+  $ kubectl port-forward <pod-name> 8080:9292  # (local-port:pod-port)
+  ```
+- Зайдем в браузере на **http://localhost:8080**, UI работает.
+- Подключим остальные компоненты
+  ```bash
+  $ kubectl apply -f comment-deployment.yml
+  $ kubectl apply -f post-deployment.yml
+  ```
+- Для связи компонент между собой и с внешним миром используется объект **Service**
+  - **$ kubectl apply -f kubernetes/reddit/comment-service.yml**
+  - Посмотрите по label-ам соответствующие POD-ы:
+  ```bash
+  $ kubectl describe service comment | grep Endpoints
+  Endpoints:         172.17.0.11:9292,172.17.0.12:9292,172.17.0.13:9292
+  
+  $ kubectl exec -ti <pod-name> nslookup comment
+  nslookup: can't resolve '(null)': Name does not resolve
+
+  Name:      comment
+  Address 1: 10.104.40.232 comment.default.svc.cluster.local
+  ```
+  - Сделаем Service для БД comment: **kubernetes/reddit/comment-mongodb-service.yml**
+  - Сделаем Service для БД post: **kubernetes/reddit/post-mongodb-service.yml**
+- Обеспечим доступ к ui-сервису снаружи **kubernetes/reddit/ui-service.yml**
+  - Тип сервиса **NodePort** - на каждой ноде кластера открывает порт из диапазона **30000-32767** и переправляет трафик с этого порта на тот, который указан в **targetPort Pod** (похоже на стандартный expose в docker)
+  ```bash
+  ...
+  spec:
+   type: NodePort
+   ports:
+   - nodePort: 32092
+     port: 9292
+     protocol: TCP
+     targetPort: 9292
+  ...
+  ```
+- Minikube может перенаправлять на web-странцы с сервисами которые были помечены типом **NodePort**
+  ```bash
+  C:\Users\1>minikube service list
+  |-------------|------------|-----------------------------|
+  |  NAMESPACE  |    NAME    |             URL             |
+  |-------------|------------|-----------------------------|
+  | default     | comment    | No node port                |
+  | default     | comment-db | No node port                |
+  | default     | kubernetes | No node port                |
+  | default     | post       | No node port                |
+  | default     | post-db    | No node port                |
+  | default     | ui         | http://192.168.99.100:32092 |
+  | kube-system | kube-dns   | No node port                |
+  |-------------|------------|-----------------------------|
+  ```
+- Получим список расширений:
+  ```bash
+  $ minikube addons list
+  - addon-manager: enabled
+  - dashboard: enabled
+  - default-storageclass: enabled
+  - efk: disabled
+  - freshpod: disabled
+  - gvisor: disabled
+  - heapster: disabled
+  - ingress: disabled
+  - logviewer: disabled
+  - metrics-server: disabled
+  - nvidia-driver-installer: disabled
+  - nvidia-gpu-device-plugin: disabled
+  - registry: disabled
+  - registry-creds: disabled
+  - storage-provisioner: enabled
+  - storage-provisioner-gluster: disabled
+  ```
+- Включим и зайдем в Dashboard:
+  ```bash
+  $ minikube service kubernetes-dashboard -n kube-system
+  
+  $ minikube dashboard --url
+  -   Enabling dashboard ...
+  -   Verifying dashboard health ...
+  -   Launching proxy ...
+  -   Verifying proxy health ...
+  http://127.0.0.1:3561/api/v1/namespaces/kube-system/services/http:kubernetes-dashboard:/proxy/
+  ```
+- **Namespace:**
+- Cоздадим свой Namespace **kubernetes/reddit/dev-namespace.yml**
+  - **$ kubectl apply -f dev-namespace.yml**
+- Запустим приложение в **dev** неймспейсе:
+  - **$ kubectl apply -n dev -f …**
+  - Если возник конфликт портов у ui-service, то убираем из описания значение **NodePort**
+- Смотрим результат:
+  - **$ minikube service ui -n dev**
+- Добавим информацию об окружении внутрь контейнера UI **kubernetes/reddit/ui-deployment.yml**:
+  ```bash
+  …
+  spec:
+    containers:
+    - image: USER_NAME/ui
+      name: ui
+      env:
+      - name: ENV
+        valueFrom:
+          fieldRef:
+            fieldPath: metadata.namespace
+  ```
+- Смотрим результат:
+  - **$ minikube service ui -n dev**
+  - В заголовке появиться **dev:** *"Microservices Reddit in* **dev** *ui-8644b898fd-h8wkm container"*
+</p></details>
+
+#
+
+- **Google Kubernetes Engine:**
+<details><p>
+
+- Зайдите в свою gcloud console, перейдите в *"kubernetes clusters"*
+- Нажмите *"создать Cluster"*
+- Жмем *"Создать"* и ждем, пока поднимется кластер
+- Подключимся к GKE для запуска нашего приложения:
+  - Нажмите *"Connect"* и скопируйте команду вида:
+  **$ gcloud container clusters get-credentials cluster-1 --zone us-central1-a --project docker-182508**
+  - Введите в консоли скопированную команду. В результате в файл **~/.kube/config** будут добавлены **user**, **cluster** и **context** для подключения к кластеру в **GKE.**
+  - Проверьте, что текущий контекст будет выставлен для подключения к этому кластеру
+    - **$ kubectl config current-context**
+- Запустим наше приложение в GKE:
+  - Создадим dev namespace
+    - **$ kubectl apply -f ./kubernetes/reddit/dev-namespace.yml**
+  - Задеплоим все компоненты приложения в namespace dev
+    - **$ kubectl apply -f ./kubernetes/reddit/ -n dev**
+- Создайте правила firewall и откройте порты **tcp:30000-32767** kubernetes для публикации сервисов
+- Посмотрим внешний IP-адрес любой ноды из кластера
+  ```bash
+   $ kubectl get nodes -o wide
+  NAME                                                STATUS   ROLES    AGE   VERSION           EXTERNAL-IP      
+  gke-standard-cluster-1-default-pool-3fc50298-2t9b   Ready    <none>   15m   v1.10.12-gke.14   35.195.212.157 
+  gke-standard-cluster-1-default-pool-3fc50298-mdls   Ready    <none>   17m   v1.10.12-gke.14   35.195.109.252
+  ```
+- Найдите порт публикации сервиса ui
+  ```bash
+  $ kubectl describe service ui -n dev | grep NodePort
+    Type: NodePort
+    NodePort: <unset> 31474/TCP
+  ```
+- Идем по адресу **http://\<node-ip\>:\<NodePort\>** наш сервис работает.
+- Запустим Dashboard для кластера GKE
+ - Kubernetes Engine -> Clusters -> EDIT -> Add-ons -> Kubernetes dashboard -> Enabled
+ - **$ kubectl proxy**
+ - Заходим по адресу *http://localhost:8001/ui* (Жмем "SKIP") или *http://localhost:8001/api/v1/namespaces/kube-system/services/https:kubernetes-dashboard:/proxy/#!/login*
+ - У dashboard не хватает прав, чтобы посмотреть на кластер, его не пускает **RBAC**
+ - Назначим нашему *Service Account* роль с достаточными правами на просмотр информации о кластере
+   - **$ kubectl create clusterrolebinding kubernetes-dashboard --clusterrole=cluster-admin --serviceaccount=kube-system:kubernetes-dashboard**
+ - Снова зайдем по адресу *http://localhost:8001/ui* - dashboard работает
 </p></details>
