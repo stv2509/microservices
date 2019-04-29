@@ -1,5 +1,9 @@
 [![Build Status](https://travis-ci.org/stv2509/microservices.svg?branch=master)](https://travis-ci.org/stv2509/microservices)
 
+
+### [Курсы DevOps практики и инструменты](https://otus.ru/lessons/devops-praktiki-i-instrumenty/)
+
+
 ## ШПАРГАЛКИ:
 <details><p>
 
@@ -763,7 +767,7 @@ docker run -d --network=reddit -p 9292:9292 stv2509/ui:2.0
 - Жмем *"Создать"* и ждем, пока поднимется кластер
 - Подключимся к GKE для запуска нашего приложения:
   - Нажмите *"Connect"* и скопируйте команду вида:
-  **$ gcloud container clusters get-credentials cluster-1 --zone us-central1-a --project docker-182508**
+  **$ gcloud container clusters get-credentials cluster-1 --zone europe-west1-b --project docker-182508**
   - Введите в консоли скопированную команду. В результате в файл **~/.kube/config** будут добавлены **user**, **cluster** и **context** для подключения к кластеру в **GKE.**
   - Проверьте, что текущий контекст будет выставлен для подключения к этому кластеру
     - **$ kubectl config current-context**
@@ -787,7 +791,7 @@ docker run -d --network=reddit -p 9292:9292 stv2509/ui:2.0
     NodePort: <unset> 31474/TCP
   ```
 - Идем по адресу **http://\<node-ip\>:\<NodePort\>** наш сервис работает.
-- Запустим Dashboard для кластера GKE
+- Запустим [Dashboard](https://kubernetes.io/docs/tasks/access-application-cluster/web-ui-dashboard/) для кластера GKE
  - Kubernetes Engine -> Clusters -> EDIT -> Add-ons -> Kubernetes dashboard -> Enabled
  - **$ kubectl proxy**
  - Заходим по адресу *http://localhost:8001/ui* (Жмем "SKIP") или *http://localhost:8001/api/v1/namespaces/kube-system/services/https:kubernetes-dashboard:/proxy/#!/login*
@@ -796,3 +800,85 @@ docker run -d --network=reddit -p 9292:9292 stv2509/ui:2.0
    - **$ kubectl create clusterrolebinding kubernetes-dashboard --clusterrole=cluster-admin --serviceaccount=kube-system:kubernetes-dashboard**
  - Снова зайдем по адресу *http://localhost:8001/ui* - dashboard работает
 </p></details>
+
+#  
+# Homework 28. Kubernetes. Network. Storage.
+
+- Сетевое взаимодействие в Kubernetes
+- Хранение данных в Kubernetes
+
+### В процессе сделано:
+<details><p>
+
+- **LoadBalancer**
+  - Настроим соответствующим образом Service UI **ui-service.yml**
+  ```bash
+  ....
+  spec:
+    type: LoadBalancer # Тип LoadBalancer
+    ports:
+    - port: 80         # Порт, который будет открыт на балансировщике
+      nodePort: 32092  # на ноде будет открыт порт, но нам он не нужен и его можно даже убрать
+      protocol: TCP
+      targetPort: 9292 # Порт POD-а
+  ...
+  ```
+  - **$ kubectl apply -f ./kubernetes/reddit/ui-service.yml -n dev**
+  - Проверим, что получилось:
+  ```bash
+  $ kubectl get service -n dev --selector component=ui
+  NAME   TYPE           CLUSTER-IP    EXTERNAL-IP   PORT(S)        AGE
+  ui     LoadBalancer   10.7.242.18   <pending>     80:31372/TCP   1h
+  ```
+  - Немного подождем и проверим еще раз, появился **"EXTERNAL-IP"**
+  ```bash
+  $ kubectl get service -n dev --selector component=ui
+  NAME   TYPE           CLUSTER-IP    EXTERNAL-IP     PORT(S)        AGE
+  ui     LoadBalancer   10.7.242.18   104.199.87.67   80:31372/TCP   1h
+  ```
+  - Наш IP-адрес для доступа **104.199.87.67:80**
+  - Откроем консоль GCP и посмотрим правило созданное правило балансировки:
+    - **GCP -> Network services -> Load balancer details**
+- **Ingress**
+  - Сами по себе Ingress’ы это просто правила. Для их применения нужен **Ingress Controller**
+  - Ingress Controller (В отличие от остальных контроллеров k8s - он не стартует вместе с кластером.) - это скорее плагин (а значит и отдельный POD), который состоит из 2-х функциональных частей:
+    - Приложение, которое отслеживает через k8s API новые объекты Ingress и обновляет конфигурацию балансировщика
+    - Балансировщик (Nginx, haproxy, traefik,…), который и занимается управлением сетевым трафиком
+	- Создадим Ingress **kubernetes/reddit/ui-ingress.yml** для сервиса UI
+	- В **GCP -> Network services -> Load balancer details** должно появиться наше правило.
+	- Посмотрим в сам кластер:
+	```bash
+	$ kubectl get ingress -n dev
+    NAME   HOSTS   ADDRESS       PORTS   AGE
+    ui     *       34.96.85.47   80      10m
+	```
+	- У нас 2 балансировщика для 1 сервиса, уберем один балансировщик из **kubernetes/reddit/ui-service.yml:**
+	```bash
+	...
+	spec:
+      type: NodePort
+      ports:
+      - port: 9292
+        protocol: TCP
+        targetPort: 9292
+	...
+	```
+	- **$ kubectl apply -f kubernetes/reddit/ui-service.yml -n dev**
+	- Заставим работать Ingress Controller как классический веб - **kubernetes/reddit/ui-ingress.yml:**
+	```bash
+	---
+    apiVersion: extensions/v1beta1
+    kind: Ingress
+    metadata:
+      name: ui
+    spec:
+      rules:
+      - http:
+        paths:
+        - path: /*
+        backend:
+          serviceName: ui
+          servicePort: 9292
+	```
+	- **$ kubectl apply -f kubernetes/reddit/ui-ingress.yml**. Может долго запускаться. Ждите.
+- **Secret**
