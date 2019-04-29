@@ -837,7 +837,7 @@ docker run -d --network=reddit -p 9292:9292 stv2509/ui:2.0
   ui     LoadBalancer   10.7.242.18   104.199.87.67   80:31372/TCP   1h
   ```
   - Наш IP-адрес для доступа **104.199.87.67:80**
-  - Откроем консоль GCP и посмотрим правило созданное правило балансировки:
+  - Откроем консоль GCP и посмотрим созданное правило балансировки:
     - **GCP -> Network services -> Load balancer details**
 - **Ingress**
   - Сами по себе Ingress’ы это просто правила. Для их применения нужен **Ingress Controller**
@@ -881,4 +881,45 @@ docker run -d --network=reddit -p 9292:9292 stv2509/ui:2.0
           servicePort: 9292
 	```
 	- **$ kubectl apply -f kubernetes/reddit/ui-ingress.yml**. Может долго запускаться. Ждите.
-- **Secret**
+- **[Secret](https://kubernetes.io/docs/concepts/configuration/secret/)**
+  - Защитим наш сервис с помощью TLS.
+  ```bash
+  $ kubectl get ingress -n dev
+    NAME   HOSTS   ADDRESS       PORTS   AGE
+    ui     *       34.96.85.47   80      3h
+    
+  $ openssl req -x509 -nodes -days 365 -newkey rsa:2048 -keyout tls.key -out tls.crt -subj "/CN=34.96.85.47"
+    
+  $ kubectl create secret tls ui-ingress --key tls.key --cert tls.crt -n dev
+  
+  #Проверить можно командой
+  $ kubectl describe secret ui-ingress -n dev
+  ```
+  - Настроим Ingress на прием только HTTPS траффика **kubernetes/reddit/ui-ingress.yml:**
+  ```bash
+  ...
+  apiVersion: extensions/v1beta1
+  kind: Ingress
+  metadata:
+    name: ui
+    annotations:
+      kubernetes.io/ingress.allow-http: "false"  # Отключаем проброс HTTP
+  spec:
+    tls:
+      - secretName: ui-ingress  # Подключаем наш сертификат
+    backend:
+      serviceName: ui
+      servicePort: 9292
+  ```
+  - Применим конфигурацию
+    - **$ kubectl apply -f ui-ingress.yml -n dev**
+  - Откроем консоль GCP и посмотрим, что осталось одно созданное правило HTTPS(443) балансировки:
+    - **GCP -> Network services -> Load balancer details** или
+	- **$ kubectl.exe get ingress -n dev**
+  - Если осталось еще правило HTTP(80), тогда нужно его вручную удалить и пересоздать:
+  ```bash
+  $ kubectl delete ingress ui -n dev
+  $ kubectl apply -f ui-ingress.yml -n dev
+  ```
+  - Заходим на страницу нашего приложения по https, подтверждаем исключение безопасности (у нас сертификат самоподписанный) и видим что все работает. Правила Ingress могут долго применяться, если не получилось зайти с первой попытки - подождите и попробуйте еще раз
+  - Запишем пункты выше в манифест **kubernetes/reddit/ui-ingress-secret.yml**  
