@@ -839,7 +839,7 @@ docker run -d --network=reddit -p 9292:9292 stv2509/ui:2.0
   - Наш IP-адрес для доступа **104.199.87.67:80**
   - Откроем консоль GCP и посмотрим созданное правило балансировки:
     - **GCP -> Network services -> Load balancer details**
-- **Ingress**
+- **[Ingress](https://kubernetes.io/docs/concepts/services-networking/ingress/)**
   - Сами по себе Ingress’ы это просто правила. Для их применения нужен **Ingress Controller**
   - Ingress Controller (В отличие от остальных контроллеров k8s - он не стартует вместе с кластером.) - это скорее плагин (а значит и отдельный POD), который состоит из 2-х функциональных частей:
     - Приложение, которое отслеживает через k8s API новые объекты Ingress и обновляет конфигурацию балансировщика
@@ -922,4 +922,27 @@ docker run -d --network=reddit -p 9292:9292 stv2509/ui:2.0
   $ kubectl apply -f ui-ingress.yml -n dev
   ```
   - Заходим на страницу нашего приложения по https, подтверждаем исключение безопасности (у нас сертификат самоподписанный) и видим что все работает. Правила Ingress могут долго применяться, если не получилось зайти с первой попытки - подождите и попробуйте еще раз
-  - Запишем пункты выше в манифест **kubernetes/reddit/ui-ingress-secret.yml**  
+  - **kubectl describe ingress -n dev**
+  - Запишем пункты выше в манифест **kubernetes/reddit/ui-ingress-secret.yml**
+- **[Network Policy](https://kubernetes.io/docs/concepts/services-networking/network-policies/)**  - инструмент для декларативного описания потоков трафика. Ограничим трафик, поступающий на mongodb отовсюду, кроме сервисов post и comment.
+  - Включим Network Policy в GCP
+  ```bash
+  # Найдем имя кластера
+  $ gcloud beta container clusters list
+    NAME                LOCATION        MASTER_VERSION  MASTER_IP     MACHINE_TYPE   NODE_VERSION  NUM_NODES  STATUS
+    standard-cluster-1  europe-west1-b  1.11.8-gke.6    35.233.64.87  n1-standard-1  1.11.8-gke.6  2          RUNNING
+
+  # Включим network-policy для GKE.
+  $ gcloud beta container clusters update standard-cluster-1 --zone=europe-west1-b --update-addons=NetworkPolicy=ENABLED
+  Updating standard-cluster-1...
+  ...........................done.
+  
+  $ gcloud beta container clusters update standard-cluster-1 --zone=europe-west1-b  --enable-network-policy
+  Do you want to continue (Y/n)?
+  Updating standard-cluster-1...
+  .done.
+  ```
+  - Создадим манифест для mongo **kubernetes/reddit/mongo-network-policy.yml** и применим
+    - **$ kubectl apply -f mongo-network-policy.yml -n dev**
+  - Посмотрим на созданные правила
+    - **$ kubectl describe NetworkPolicy -n dev**
