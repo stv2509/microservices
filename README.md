@@ -810,7 +810,7 @@ docker run -d --network=reddit -p 9292:9292 stv2509/ui:2.0
 ### В процессе сделано:
 <details><p>
 
-- **LoadBalancer**
+- **[LoadBalancer](https://kubernetes.io/docs/concepts/services-networking/service/#loadbalancer)**
   - Настроим соответствующим образом Service UI **ui-service.yml**
   ```bash
   ....
@@ -946,3 +946,154 @@ docker run -d --network=reddit -p 9292:9292 stv2509/ui:2.0
     - **$ kubectl apply -f mongo-network-policy.yml -n dev**
   - Посмотрим на созданные правила
     - **$ kubectl describe NetworkPolicy -n dev**
+- **[Хранилище для базы](https://kubernetes.io/docs/concepts/storage/volumes/)
+  - Подключим volume в **kubernetes/reddit/mongo-deployment.yml**
+  Тип Volume **emptyDir.** При создании пода с таким типом просто создается пустой docker volume.
+  При остановке POD’a содержимое **emtpyDir** удалится навсегда.
+  ```bash
+  ---
+  apiVersion: apps/v1beta1
+  kind: Deployment
+  metadata:
+    name: mongo
+  …
+      spec:
+        containers:
+          - image: mongo:lates
+            name: mongo
+            volumeMounts:
+            - name: mongo-persistent-storage
+              mountPath: /data/db
+      volumes:
+        - name: mongo-persistent-storage
+          emptyDir: {}
+  ```
+  - Создадим диск в Google Cloud
+    - **gcloud compute disks create --size=25GB --zone=europe-west1-b reddit-mongo-disk**
+  - Добавим новый Volume в **kubernetes/reddit/mongo-deployment.yml**
+  ```bash
+  ---
+  apiVersion: apps/v1beta1
+  kind: Deployment
+  metadata:
+    name: mongo
+  …
+      spec:
+        containers:
+          - image: mongo:lates
+            name: mongo
+            volumeMounts:
+            - name: mongo-persistent-storage
+              mountPath: /data/db
+      volumes:
+        - name: mongo-gce-pd-storage
+          gcePersistentDisk:
+            pdName: reddit-mongo-disk
+            fsType: ext4  
+  ```
+  - **$ kubectl apply -f mongo-deployment.yml -n dev**
+  - Создадим post и удалим *deployment*
+    - **$ kubectl delete deploy mongo -n dev**
+  - Заново подключим *deployment* и проверим, что post остался на месте.
+- **[PersistentVolume ](https://kubernetes.io/docs/concepts/storage/persistent-volumes/)**
+  - Создадим описание PersistentVolume **kubernetes/reddit/mongo-volume.yml**
+  ```bash
+  ---
+  apiVersion: v1
+  kind: PersistentVolume
+  metadata:
+    name: reddit-mongo-disk
+  spec:
+    capacity:
+      storage: 25Gi
+    accessModes:
+      - ReadWriteOnce
+    persistentVolumeReclaimPolicy: Retain
+    gcePersistentDisk:
+      fsType: "ext4" 
+      pdName: "reddit-mongo-disk"
+  ```
+  - Добавим PersistentVolume в кластер
+   - **$ kubectl apply -f mongo-volume.yml -n dev**
+  - Мы создали ресурс дискового хранилища, распространенный на весь кластер, в виде **PersistentVolume.**
+- **[PersistentVolumeClaim](https://kubernetes.io/docs/concepts/storage/persistent-volumes/#persistentvolumeclaims)**
+  - Создадим описание PersistentVolumeClaim (PVC) **kubernetes/reddit/mongo-claim.yml**
+  ```bash
+  ---
+  kind: PersistentVolumeClaim
+  apiVersion: v1
+  metadata:
+    name: mongo-pvc
+  spec:
+    accessModes:
+      - ReadWriteOnce
+    resources:
+      requests:
+        storage: 15Gi
+  ```
+  - **$ kubectl apply -f mongo-claim.yml -n dev**
+  - **$ kubectl describe storageclass standard -n dev**
+  - Подключим PVC к нашим Pod'ам **kubernetes/reddit/mongo-deployment.yml**
+  ```bash
+  ---
+  apiVersion: apps/v1beta1
+  kind: Deployment
+  metadata:
+  name: mongo
+  …
+    spec:
+    containers:
+    - image: mongo:latest
+      name: mongo
+      volumeMounts:
+        - name: mongo-persistent-storage
+          mountPath: /data/db
+    volumes:
+      - name: mongo-persistent-storage  # Имя PersistentVolumeClame'а
+        persistentVolumeClaim:
+          claimName: mongo-pvc
+  ```
+  - Обновим описание нашего Deployment’а
+    - **$ kubectl apply -f mongo-deployment.yml -n dev**
+- Создадим **StorageClass** Fast: **kubernetes/reddit/storage-fast.yml**
+  - Добавим StorageClass в кластер
+    - **$ kubectl apply -f storage-fast.yml -n dev**
+- **PVC + StorageClass**
+  - Создадим описание PersistentVolumeClaim **kubernetes/reddit/mongo-claim-dynamic.yml**
+    - Добавим StorageClass в кластер
+    - **$ kubectl apply -f mongo-claim-dynamic.yml -n dev**
+  - Подключим PVC к нашим Pod'ам **kubernetes/reddit/mongo-deployment.yml**
+  ```bash
+  ---
+  apiVersion: apps/v1beta1
+  kind: Deployment
+  metadata:
+  name: mongo
+  …
+    spec:
+    containers:
+    - image: mongo:latest
+      name: mongo
+      volumeMounts:
+        - name: mongo-persistent-storage
+          mountPath: /data/db
+    volumes:
+      - name: mongo-persistent-storage  # Имя PersistentVolumeClame'а
+        persistentVolumeClaim:
+          claimName: mongo-pvc-dynamic  # Обновим PersistentVolumeClaim
+  ```
+  - Обновим описание нашего Deployment’а
+    - **$ kubectl apply -f mongo-deployment.yml -n dev**
+- Посмотрим какие в итоге у нас получились **PersistentVolume'ы:**
+  ```bash
+  $ kubectl get persistentvolume -n dev
+  NAME                                       CAPACITY   ACCESS MODES   RECLAIM POLICY   STATUS      CLAIM                   STORAGECLASS   REASON   AGE
+  pvc-05270d79-6b42-11e9-b8fc-42010a84014d   15Gi       RWO            Delete           Bound       dev/mongo-pvc           standard                36m
+  pvc-976f7c75-6b46-11e9-b8fc-42010a84014d   10Gi       RWO            Delete           Bound       dev/mongo-pvc-dynamic   fast                    3m
+  reddit-mongo-disk                          25Gi       RWO            Retain           Available                                                   42m
+  ```
+  - *STATUS* - Статус PV по отношению к Pod'ам и Claim'ам
+  - *CLAIM* - К какому Claim'у привязан данный PV
+  - *STORAGECLASS* - StorageClass данного PV
+- На созданные Kubernetes'ом диски можно посмотреть в *GCP -> Compute Engine -> Disks*
+</p></details>
