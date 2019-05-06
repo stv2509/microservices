@@ -19,7 +19,7 @@ services:
       - front_net
 
   post:
-    build: ./post-py
+    build: ./post
     image: ${USERNAME}/post:$TAG
     networks:
       back_net:

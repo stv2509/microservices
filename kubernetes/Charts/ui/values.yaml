@@ -1,0 +1,19 @@
+---
+service:
+  internalPort: 9292
+  externalPort: 9292
+
+image:
+  repository: stv2509/ui
+  tag: latest
+
+ingress:
+  class: nginx
+
+postHost:
+
+postPort:
+
+commentHost:
+
+commentPort:
