@@ -8,3 +8,4 @@ geerlingguy.docker
 reddit
 .env
 tls.*
+Gitlab_ci/

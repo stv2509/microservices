@@ -473,9 +473,9 @@ docker run -d --network=reddit -p 9292:9292 stv2509/ui:2.0
 - Отправка логов во *Fluentd*
   - Определим драйвер логирования для сервиса *post* в **docker/docker-compose.yaml:**
   ```bash
-  …
+  ...
   post:
-   …
+   ...
     logging:
       driver: "fluentd"
       options:
@@ -622,9 +622,9 @@ docker run -d --network=reddit -p 9292:9292 stv2509/ui:2.0
   ```
 - Порядок конфигурирования **kubectl**:
   - Создать cluster:
-    -  $ kubectl config set-cluster … **cluster_name**
+    -  $ kubectl config set-cluster ... **cluster_name**
   - Создать данные пользователя (credentials)
-    - $ kubectl config set-credentials … **user_name**
+    - $ kubectl config set-credentials ... **user_name**
   - Создать контекст
     - $ kubectl config set-context **context_name** --cluster=**cluster_name** --user=**user_name**
   - Использовать контекст
@@ -735,13 +735,13 @@ docker run -d --network=reddit -p 9292:9292 stv2509/ui:2.0
 - Cоздадим свой Namespace **kubernetes/reddit/dev-namespace.yml**
   - **$ kubectl apply -f dev-namespace.yml**
 - Запустим приложение в **dev** неймспейсе:
-  - **$ kubectl apply -n dev -f …**
+  - **$ kubectl apply -n dev -f ...**
   - Если возник конфликт портов у ui-service, то убираем из описания значение **NodePort**
 - Смотрим результат:
   - **$ minikube service ui -n dev**
 - Добавим информацию об окружении внутрь контейнера UI **kubernetes/reddit/ui-deployment.yml**:
   ```bash
-  …
+  ...
   spec:
     containers:
     - image: USER_NAME/ui
@@ -843,7 +843,7 @@ docker run -d --network=reddit -p 9292:9292 stv2509/ui:2.0
   - Сами по себе Ingress’ы это просто правила. Для их применения нужен **Ingress Controller**
   - Ingress Controller (В отличие от остальных контроллеров k8s - он не стартует вместе с кластером.) - это скорее плагин (а значит и отдельный POD), который состоит из 2-х функциональных частей:
     - Приложение, которое отслеживает через k8s API новые объекты Ingress и обновляет конфигурацию балансировщика
-    - Балансировщик (Nginx, haproxy, traefik,…), который и занимается управлением сетевым трафиком
+    - Балансировщик (Nginx, haproxy, traefik,...), который и занимается управлением сетевым трафиком
 	- Создадим Ingress **kubernetes/reddit/ui-ingress.yml** для сервиса UI
 	- В **GCP -> Network services -> Load balancer details** должно появиться наше правило.
 	- Посмотрим в сам кластер:
@@ -956,7 +956,7 @@ docker run -d --network=reddit -p 9292:9292 stv2509/ui:2.0
   kind: Deployment
   metadata:
     name: mongo
-  …
+  ...
       spec:
         containers:
           - image: mongo:lates
@@ -977,7 +977,7 @@ docker run -d --network=reddit -p 9292:9292 stv2509/ui:2.0
   kind: Deployment
   metadata:
     name: mongo
-  …
+  ...
       spec:
         containers:
           - image: mongo:lates
@@ -1040,7 +1040,7 @@ docker run -d --network=reddit -p 9292:9292 stv2509/ui:2.0
   kind: Deployment
   metadata:
   name: mongo
-  …
+  ...
     spec:
     containers:
     - image: mongo:latest
@@ -1069,7 +1069,7 @@ docker run -d --network=reddit -p 9292:9292 stv2509/ui:2.0
   kind: Deployment
   metadata:
   name: mongo
-  …
+  ...
     spec:
     containers:
     - image: mongo:latest
@@ -1096,4 +1096,322 @@ docker run -d --network=reddit -p 9292:9292 stv2509/ui:2.0
   - *CLAIM* - К какому Claim'у привязан данный PV
   - *STORAGECLASS* - StorageClass данного PV
 - На созданные Kubernetes'ом диски можно посмотреть в *GCP -> Compute Engine -> Disks*
+</p></details>
+
+#  
+# Homework 29. Kubernetes: Helm, Gitlab, Ci_CD
+
+- Работа с Helm
+- Развертывание Gitlab в Kubernetes
+- Запуск CI/CD конвейера в Kubernetes
+
+
+### В процессе сделано:
+<details><p>
+
+- [Установим Helm](https://github.com/helm/helm/releases)
+<details><p>
+
+- Установим серверную часть Helm’а - **Tiller**
+  ```bash
+  $ kubectl apply -f kubernetes/tiller.yml
+  
+    #Теперь запустим tiller-сервер
+  $ helm init --service-account tiller
+  
+    #Проверим
+  $ kubectl get pods -n kube-system --selector app=helm
+  NAME                             READY   STATUS    RESTARTS   AGE
+  tiller-deploy-54fc6d9ccc-62r54   1/1     Running   0          1d
+  ```
+- Создайте директорию **kubernetes/Charts**
+- Helm предпочитает **.yaml**
+- Создадим файл-описание chart’а ui **kubernetes/Charts/ui/Chart.yaml**
+- Создадим директорию **ui/templates** и перенесем в неё все манифесты, разработанные ранее для сервиса ui (ui-service, ui-deployment, ui-ingress). Уберем префикс *'ui-'*) и поменяем расширение на **.yaml**)
+- Установим *Chart*
+  ```bash
+  $ helm install --name test-ui-1 ui/  # Где test-ui-1 - имя релиза
+  
+  # Посмотрим, что получилось
+  $ helm ls
+  NAME            REVISION        UPDATED                         STATUS          CHART           APP VERSION     NAMESPACE
+  test-ui-1       1               Thu May  2 14:12:04 2019        DEPLOYED        ui-1.0.0        1               default
+  ```
+- Сделаем шаблон из файла **ui/templates/service.yaml** для запуска нескольких экземпляров (релизов).
+  ```bash
+  ...
+  metadata:
+    name: {{ .Release.Name }}-{{ .Chart.Name }} # Уникальное имя запущенного ресурса
+    ...
+	release: {{ .Release.Name }} # Помечаем, что сервис из конкретного релиза
+  selector:
+    ...
+    release: {{ .Release.Name }} # Выбираем POD-ы только из этого релиза
+  ```
+- Шаблонизируем подобным образом остальные манифесты
+- Определим значения собственных переменных в файле **kubernetes/Charts/ui/values.yaml**
+- Попробуем установить несколько релизов *ui*
+  ```bash
+  $ helm install kubernetes/Charts/ui/  --name ui-1
+  $ helm install kubernetes/Charts/ui/  --name ui-2
+  $ helm install kubernetes/Charts/ui/  --name ui-3
+  
+    # Должны появиться 3 ингресса
+  $ kubectl get ingress
+  NAME      HOSTS   ADDRESS          PORTS   AGE
+  ui-1-ui   *       35.190.67.102    80      8m
+  ui-2-ui   *       34.96.85.47      80      7m
+  ui-3-ui   *       35.244.168.219   80      7m
+  ```
+- Шаблонизируем сервисы *comment* и *post*  
+- Итоговая структура должна выглядеть так
+
+  kubernetes/Charts/
+  |-- comment
+  |   |-- Chart.yaml
+  |   |-- templates
+  |   |   |-- deployment.yaml
+  |   |   `-- service.yaml
+  |   `-- values.yaml
+  |-- post
+  |   |-- Chart.yaml
+  |   |-- templates
+  |   |   |-- deployment.yaml
+  |   |   `-- service.yaml
+  |   `-- values.yaml
+  |-- reddit
+  `-- ui
+      |-- Chart.yaml
+      |-- templates
+      |   |-- deployment.yaml
+      |   |-- ingress.yaml
+      |   `-- service.yaml
+      `-- values.yaml
+	  
+- **Helper** - это написанная нами функция. Шаблоны этих функция распологаются в файле **_helpers.tpl**
+- Пример функции **comment.fullname(kubernetes/Charts/comment/templates/_helpers.tpl), :**
+  ```bash
+  {{- define "comment.fullname" -}}
+  {{- printf "%s-%s" .Release.Name .Chart.Name }}
+  {{- end -}}
+  
+  # которая в результате выдаст то же, что и:
+  {{ .Release.Name }}-{{ .Chart.Name }}
+  ```
+- Вызов функции
+  ```bash
+  {{ template "comment.fullname" . }}
+  ```
+  - *"template"* - Функция template
+  - *"comment.fullname"* - Название функции для импорта
+  - *"."* - область видимости всех переменных для импорта (можно передать .Chart, тогда .Values не будут доступны внутри функции).
+  
+- **Управление зависимостями:**
+  - Создадим единый Chart *kubernetes/Charts/reddit/**, который объединит наши компоненты
+  - В директории Chart’а reddit создадим файл **kubernetes/Charts/reddit/requirements.yaml**
+  ```bash
+  dependencies:
+  - name: ui			# Имя и версия должны совпадать
+    version: "1.0.0"    # с содеражанием ui/Chart.yml
+    repository: "file://../ui"   # Путь относительно расположения самого requiremetns.yml
+  - name: post
+    version: 1.0.0
+    repository: file://../post
+  - name: comment
+    version: 1.0.0
+    repository: file://../comment
+  ```
+  - В директории **kubernetes/Charts/reddit/** выполним команду:
+    - **$ helm dep update**
+  - Chart для базы данных найдем в общедоступном helm репозитории:
+  ```bash
+  $ helm search mongo
+  NAME                                    CHART VERSION   APP VERSION     DESCRIPTION
+  stable/mongodb                          5.16.4          4.0.9           NoSQL document-oriented database that stores JSON-like do...
+  stable/mongodb-replicaset               3.9.2           3.6             NoSQL document-oriented database that stores JSON-like do...
+  ```
+  - Добавим его в **reddit/requirements.yaml**
+  ```bash
+  dependencies:
+   ...
+   - name: comment
+     version: 1.0.0
+     repository: file://../comment
+   - name: mongodb
+     version: 5.16.4
+     repository: https://kubernetes-charts.storage.googleapis.com
+  ```
+    - В директории **kubernetes/Charts/reddit/** обновим зависимости:
+    - **$ helm dep update**
+  - Установим наше приложение:
+    - **$ helm.exe install kubernetes/Charts/reddit/ --name reddit-test**
+  - Добавим в **kubernetes/Charts/ui/templates/deployment.yaml** переменные окружения,
+  чтобы UI-сервис знал как правильно ходить в *post* и *comment* сервисы:
+  ```bash
+   spec:
+    containers:
+    ...
+      env:
+        - name: POST_SERVICE_HOST
+          value: {{ .Values.postHost | default (printf "%s-post" .Release.Name) }}
+        - name: POST_SERVICE_PORT
+          value: {{ .Values.postPort | default "5000" | quote }}
+        - name: COMMENT_SERVICE_HOST
+          value: {{ .Values.commentHost | default (printf "%s-comment" .Release.Name) }}
+        - name: COMMENT_SERVICE_PORT
+          value: {{ .Values.commentPort | default "9292" | quote }}  # 'quote' функция для добавления кавычек. Для чисел и булевых значений это важно
+        - name: ENV
+  ```
+  - Не забудте описать созданные переменные в конфигурации Chart’а **kubernetes/Charts/ui/values.yaml**
+  ```bash
+  ...
+  postHost:
+  postPort:
+  commentHost:
+  commentPort:
+  ```
+  - Теперь можете задавать переменные для зависимостей прямо в **kubernetes/Charts/reddit/values.yaml** самого Chart’а reddit.
+  ```bash
+  comment: # ссылаемся на переменные чартов из зависимостей
+    image:
+      repository: stv2509/comment
+      tag: latest
+    service:
+      externalPort: 9292
+    post:  # ссылаемся на переменные чартов из зависимостей
+      image:
+        repository: stv2509/post
+        tag: latest
+    service:
+        externalPort: 5000
+  ...
+  ```
+  - Обновим зависимости чарта *reddit*:
+    - **$ helm dep update**
+  - Обновим релиз, установленный в k8s:
+    - **$ helm upgrade <release-name> ./reddit**
+  - Теперь сервис UI должен работать как положено.
+</p></details>
+
+#
+  
+- **Установим Gitlab**
+<details><p>
+
+
+- Добавим репозиторий Gitlab
+  - **$ helm repo add gitlab https://charts.gitlab.io**
+- Скачаем Chart Gitlab
+  ```bash
+  $ helm fetch gitlab/gitlab-omnibus --version 0.1.37 --untar
+  $ cd gitlab-omnibus
+  ```
+- Добавим в **gitlab-omnibus/templates/gitlab/gitlab-svc.yaml** "web:80"
+  ```bash
+  ports:
+    ...
+    - name: prometheus
+      port: 9090
+      targetPort: prometheus
+    - name: web
+      port: 80
+      targetPort: workhorse
+  ```
+- Поправим параметры в **gitlab-omnibus/templates/gitlab-config.yaml:**
+  ```bash
+  ---
+  apiVersion: v1
+  kind: ConfigMap
+  ...
+    data:
+      external_scheme: http
+      external_hostname: {{ template "fullname" . }}
+  ```
+- Поправим параметры в **gitlab-omnibus/templates/ingress/gitlab-ingress.yaml:**
+  ```bash
+  ...
+    rules:
+      - host: {{ template "fullname" . }}
+        http:
+          paths:
+    ...
+  ```
+- Установим gitlab
+  - **$ helm install --name gitlab . -f values.yaml**
+
+- Найдите выданный IP-адрес ingress-контроллера nginx:
+  ```bash
+  $ kubectl get service -n nginx-ingress nginx
+  NAME    TYPE           CLUSTER-IP   EXTERNAL-IP      PORT(S)                                   AGE
+  nginx   LoadBalancer   10.7.245.5   35.187.179.251   80:30051/TCP,443:32046/TCP,22:31475/TCP   6m
+  ```
+- Поместите запись в локальный файл **/etc/hosts**
+  - **$ echo "35.187.179.251 gitlab-gitlab staging production” >> /etc/hosts**
+- Идем по адресу [http://gitlab-gitlab](http://gitlab-gitlab), установим новый пароль.
+- Создадим public group, в качестве имени введите свой Docker ID (*Mattermost: disabled*)
+- В настройках группы выберите пункт CI/CD
+- Добавьте 2 переменные
+  - **CI_REGISTRY_USER** - логин в dockerhub
+  - **CI_REGISTRY_PASSWORD** - пароль от Docker Hub
+- Создайте в группе новый *public* проект с именем **"reddit-deploy"**
+- Создайте еще 3 *public* проекта: post, ui, comment
+- Локально у себя создайте директорию Gitlab_ci с директориями: reddit-deploy, post, ui, comment
+- Перенесем исходные коды сервиса *ui* из **src/ui/** в **kubernetes/Gitlab_ci/ui/**
+- В директории **Gitlab_ci/ui**:
+  ```bash
+  # Инициализируем локальный git-репозиторий
+  $ git init
+  
+  #Добавим удаленный репозиторий
+  $ git remote add origin http://gitlab-gitlab/stv2509/ui.git
+  
+  # Закоммитим и отправим в gitlab
+  $ git add .
+  $ git commit -m “init”
+  $ git push origin master
+  ```
+- Для *"post"* и *"comment"* проделаем аналогичные действия.
+- Перенести содержимое директории **Charts** (папки ui, post, comment, reddit) в **Gitlab_ci/reddit-deploy** и запушем в gitlab-проект reddit-deploy.
+- Создадим .gitlab-ci.yml в директориях ui, post, comment и запушем его. Проверем pipelines, проследим, что сборки образов прошли успешно.
+- Запустим отдельное окружение в Kubernetes по коммиту в feature-бранч:
+  - Изменем в манифесте **reddit-deploy/ui/templates/ingress.yaml** ingress с "gce" на "nginx"
+  - Добавим переменную "ingress" в **reddit-deploy/ui/templates/values.yaml**
+  ```bash
+  ---
+  service:
+    internalPort: 9292
+    externalPort: 9292
+  ...
+  ingress:
+    class: nginx
+  ...
+  ```
+  - В **.gitlab-ci.yml** в директориях ui добавм стадию *review*, запускающую приложение в **k8s** по коммиту в feature-бранчи (не master).
+  - Создадим новый бранч в репозитории ui
+  ```bash
+  $ git checkout -b feature/3
+  $ git commit -am "Add review feature"
+  $ git push origin feature/3
+  ```
+  - Проверим запущенные релизы в kubernetes
+  ```bash
+  $ helm ls
+  NAME                            REVISION        UPDATED                         STATUS          CHART                   APP VERSION     NAMESPACE
+  gitlab                          1               Wed May  8 09:25:41 2019        DEPLOYED        gitlab-omnibus-0.1.37                   default
+  review-stv2509-ui-zqgovs        1               Wed May  8 12:16:28 2019        DEPLOYED        reddit-1.0.0            1               review
+  ```
+- **Создадим staging и production среды для работы приложения в reddit-deploy/.gitlab-ci.yml**
+  - Этот файл отличается от предыдущих тем, что:
+    - Не собирает docker-образы
+    - Деплоит на статичные окружения (staging и production)
+    - Не удаляет окружения
+- Посмотрим что получилось
+  ```bash
+  $ helm ls
+  NAME            REVISION        UPDATED                         STATUS          CHART                   APP VERSION     NAMESPACE
+  gitlab          1               Wed May  8 09:25:41 2019        DEPLOYED        gitlab-omnibus-0.1.37                   default
+  production      2               Wed May  8 14:11:16 2019        DEPLOYED        reddit-1.0.0            1               production
+  staging         1               Wed May  8 13:58:39 2019        DEPLOYED        reddit-1.0.0            1               staging
+  ```
+</p></details>
 </p></details>
