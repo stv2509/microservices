@@ -1415,3 +1415,80 @@ docker run -d --network=reddit -p 9292:9292 stv2509/ui:2.0
   ```
 </p></details>
 </p></details>
+
+
+#  
+# Homework 30. Kubernetes: Monitoring and logging
+
+- Развертывание Prometheus в k8s
+- Настройка Prometheus и Grafana для сбора метрик
+- Настройка EFK для сбора логов
+
+
+### В процессе сделано:
+<details><p>
+
+- Из Helm-чарта установим ingress-контроллер nginx
+  ```bash
+  $ helm install stable/nginx-ingress --name nginx**
+  
+  # Найдем IP-адрес, выданный nginx’у
+  $ kubectl get svc
+  NAME                                  TYPE           CLUSTER-IP      EXTERNAL-IP      PORT(S)                      AGE
+  kubernetes                            ClusterIP      10.63.240.1     <none>           443/TCP                      37m
+  nginx-nginx-ingress-controller        LoadBalancer   10.63.246.181   35.190.196.132   80:32389/TCP,443:31456/TCP   54s
+  nginx-nginx-ingress-default-backend   ClusterIP      10.63.244.227   <none>           80/TCP                       54s
+  
+  # Добавьте в /etc/hosts
+  35.190.196.132 reddit reddit-prometheus reddit-grafana reddit-non-prod production reddit-kibana staging prod
+  ```
+
+
+- Установим Prometheus
+  - **$ cd kubernetes/charts && helm fetch stable/prometheus --untar**
+- Создадим Chart-файл **kubernetes/Charts/prometheus/custom_values.yml**
+- Запустм Prometheus в k8s из charsts/prometheus
+  - **$ helm upgrade prom . -f custom_values.yml --install**
+  - Перейдем на страницу **[http://reddit-prometheus/targets](http://reddit-prometheus/targets)** Видим что присутствует ряд endpoint’ов для сбора метрик.
+- Запустим приложение из helm чарта reddit
+  ```bash
+  $ helm upgrade reddit-test ./reddit --install
+  $ helm upgrade production --namespace production ./reddit --install
+  $ helm upgrade staging --namespace staging ./reddit --install
+  ```
+- Добавим еще *label’ы* для prometheus и обновим helm-релиз.
+Т.к. метки вида __meta_* не публикуются, то нужно создать свои, перенеся в них информацию
+  ```bash
+  - source_labels: [__meta_kubernetes_namespace]
+    target_label: kubernetes_namespace
+  - source_labels: [__meta_kubernetes_service_name]
+    target_label: kubernetes_name
+  ```
+- Установим Grafana с помощью Helm:
+  ```bash
+  helm upgrade --install grafana stable/grafana --set "server.adminPassword=admin" \
+  --set "server.service.type=NodePort" \
+  --set "server.ingress.enabled=true" \
+  --set "server.ingress.hosts={reddit-grafana}"
+  ```
+- Добавим prometheus data-source
+  ```bash
+  $ kubectl get svc
+  NAME                                  TYPE           CLUSTER-IP      EXTERNAL-IP      PORT(S)                      AGE
+  prom-prometheus-server                LoadBalancer   10.63.255.210   35.241.240.207   80:32384/TCP                 3h
+  ```
+- Добавим самый распространенный **[dashboard](https://grafana.com/dashboards/315)** для отслеживания состояния ресурсов k8s.
+- Логирование
+- Добавьте *label* самой мощной ноде в кластере
+  - **$ kubectl label node gke-cluster-1-bigpool-5085c23d-rhb7** *elastichost=true*
+- Запустите стек в нашем k8s
+  - **$ kubectl apply -f kubernetes/efk/**
+- Kibana поставим из helm чарта
+  ```bash
+  helm upgrade --install kibana stable/kibana \
+  --set "ingress.enabled=true" \
+  --set "ingress.hosts={reddit-kibana}" \
+  --set "env.ELASTICSEARCH_URL=http://elasticsearch-logging:9200" \
+  --version 0.1.1
+  ```
+</p></details>
