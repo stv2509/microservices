@@ -3,6 +3,7 @@ version: '3.5'
 services:
   fluentd:
     image: ${USER_NAME}/fluentd
+    container_name: fluent
     networks:
       - redditnet
     ports:
@@ -11,6 +12,7 @@ services:
 
   elasticsearch:
     image: elasticsearch:6.7.1
+    container_name: elastic
     networks:
       - redditnet
     expose:
@@ -20,6 +22,7 @@ services:
 
   kibana:
     image: kibana:6.7.1
+    container_name: kibana
     networks:
       - redditnet
     ports:
@@ -27,4 +30,3 @@ services:
 
 networks:
   redditnet:
-
