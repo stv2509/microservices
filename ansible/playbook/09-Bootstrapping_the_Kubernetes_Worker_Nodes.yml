@@ -1,0 +1,144 @@
+---
+- name: Bootstrapping the Kubernetes Worker Nodes
+  gather_facts: no
+  become: true
+  hosts: workers
+
+  vars:
+    KUBER_VER: v1.15.0
+    home_dir: /home/vagrant
+
+  tasks:
+
+    - name: Bootstrap Kubernetes worker nodes
+      block:
+
+        - name: Install OS dependencies
+          apt:
+            name: ['socat', 'conntrack', 'ipset']
+            cache_valid_time: 84600
+
+        - name: Create the installation directories
+          file:
+            path: "{{ item }}"
+            state: directory
+          with_items:
+            - /etc/cni/net.d
+            - /opt/cni/bin
+            - /var/lib/kubelet
+            - /var/lib/kube-proxy
+            - /var/lib/kubernetes
+            - /var/run/kubernetes
+            - /etc/containerd
+
+        - name: Download the official Kubernetes release binaries
+          get_url:
+            url: "https://storage.googleapis.com/kubernetes-release/release/{{ KUBER_VER }}/bin/linux/amd64/{{ item }}"
+            dest: "/usr/local/bin/{{ item }}"
+            mode: 0755
+          with_items:
+            - kubectl
+            - kube-proxy
+            - kubelet
+
+        - name: Install runsc
+          get_url:
+            url: https://storage.googleapis.com/kubernetes-the-hard-way/runsc-50c283b9f56bb7200938d9e207355f05f79f0d17
+            dest: /usr/local/bin/runsc
+            mode: 0755
+
+        - name: Install runc
+          get_url:
+            url: https://github.com/opencontainers/runc/releases/download/v1.0.0-rc8/runc.amd64
+            dest: /usr/local/bin/runc
+            mode: 0755
+
+        - name: Install crictl
+          unarchive:
+            src: "https://github.com/kubernetes-sigs/cri-tools/releases/download/{{ KUBER_VER }}/crictl-{{ KUBER_VER }}-linux-amd64.tar.gz"
+            dest: /usr/local/bin
+            remote_src: true
+
+        - name: Install cni-plugins
+          unarchive:
+            src: https://github.com/containernetworking/plugins/releases/download/v0.8.1/cni-plugins-linux-amd64-v0.8.1.tgz
+            dest: /opt/cni/bin
+            remote_src: true
+
+        - name: Install containerd
+          unarchive:
+            src: https://github.com/containerd/containerd/releases/download/v1.2.7/containerd-1.2.7.linux-amd64.tar.gz
+            dest: /
+            remote_src: true
+
+        - name: Create the bridge and loopback network configuration files
+          script: 09_01-Configure_CNI_Networking.sh
+
+        - name: Create containerd configuration file
+          script: 09_02-Configure_containerd.sh
+          notify: restart containerd
+
+        - name: Create the containerd.service systemd unit file
+          script: 09_03-Create_containerd-service.sh
+          notify: restart containerd
+
+        - name: Copy kubelet certificates, keys, configuration file
+          copy:
+            src: "{{ item.src }}"
+            dest: "{{ item.dest }}"
+          with_items:
+            - { src: "{{ inventory_hostname }}-key.pem",  dest: "/var/lib/kubelet/{{ inventory_hostname}}-key.pem" }
+            - { src: "{{ inventory_hostname }}.pem",  dest: "/var/lib/kubelet/{{ inventory_hostname}}.pem" }
+            - { src: "{{ inventory_hostname }}.kubeconfig",  dest: "/var/lib/kubelet/kubeconfig" }
+            - { src: "ca.pem",  dest: "/var/lib/kubernetes/ca.pem" }
+          no_log: true
+          notify: restart kubelet
+
+        - name: Create the kubelet-config.yaml configuration file
+          script: 09_04-Create_the_kubelet-config.yaml.sh
+          notify: restart kubelet
+
+        - name: Create the kubelet.service systemd unit file
+          script: 09_05-Create_the_kubelet.service.sh
+          notify: restart kubelet
+
+        - name: Copy kube-proxy kubeconfig
+          copy:
+            src: kube-proxy.kubeconfig
+            dest: /var/lib/kube-proxy/kubeconfig
+          notify: restart kube-proxy
+
+        - name: Create the kube-proxy-config.yaml configuration file
+          script: 09_06-Create_the_kube-proxy-config.yaml.sh
+          notify: restart kube-proxy
+
+        - name: Create the kube-proxy.service systemd unit file
+          script: 09_07-Create_the_kube-proxy.service.sh
+          notify: restart kube-proxy
+      become: true
+
+  handlers:
+
+    - name: restart kubelet
+      systemd:
+         name: kubelet.service
+         enabled: yes
+         daemon_reload: yes
+         state: restarted
+      become: true
+
+    - name: restart containerd
+      systemd:
+         name: containerd.service
+         enabled: yes
+         daemon_reload: yes
+         state: restarted
+      become: true
+
+    - name: restart kube-proxy
+      systemd:
+         name: kube-proxy.service
+         enabled: yes
+         daemon_reload: yes
+         state: restarted
+      become: true

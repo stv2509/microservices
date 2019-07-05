@@ -1,0 +1,19 @@
+---
+
+- hosts: all
+  become: true
+  gather_facts: false
+
+
+  tasks:
+
+  - name: Check for Python
+    raw: test -e /usr/bin/python
+    changed_when: false
+    failed_when: false
+    register: check_python
+
+
+  - name: Symbolic link Python
+    raw: "ln -s /usr/bin/python3 /usr/bin/python"
+    when: check_python.rc != 0

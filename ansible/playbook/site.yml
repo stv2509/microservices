@@ -1,0 +1,8 @@
+- import_playbook: 04_01-copy-creds-to-workers.yml
+- import_playbook: 04_02-copy-creds-to-controllers.yml
+- import_playbook: 05_01-copy-kubelet_kube-proxy-to-workers.yml
+- import_playbook: 05_02-copy-kube-controller-manager_kube-scheduler-to-controllers.yml
+- import_playbook: 06-copy-encryption-config-to-controllers.yml
+- import_playbook: 07-Bootstrapping_the_etcd_Cluster.yml
+- import_playbook: 08-Bootstrapping_the_Kubernetes_Control_Plane.yml
+- import_playbook: 09-Bootstrapping_the_Kubernetes_Worker_Nodes.yml

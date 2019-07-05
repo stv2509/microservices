@@ -1,0 +1,21 @@
+---
+- name: Copy the appropriate certificates and private keys to each controller instance
+  gather_facts: no
+  become: true
+  hosts: controllers
+
+  tasks:
+
+  - name: Copy the appropriate certificates and private keys to each controller instance
+    copy:
+      src: "{{ item }}"
+      dest: "/home/vagrant/{{ item }}"
+      owner: vagrant
+      group: vagrant
+    with_items:
+      - ca.pem
+      - ca-key.pem
+      - kubernetes-key.pem
+      - kubernetes.pem
+      - service-account-key.pem
+      - service-account.pem

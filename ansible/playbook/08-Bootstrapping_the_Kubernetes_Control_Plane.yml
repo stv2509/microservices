@@ -1,0 +1,154 @@
+---
+- name: Bootstrapping the etcd Cluster
+  gather_facts: no
+  become: true
+  hosts: controllers
+
+  vars:
+    KUBER_VER: v1.15.0
+    home_dir: /home/vagrant
+
+  tasks:
+
+    - name: Bootstapping kubernetes controller
+      block:
+        - name: Create the Kubernetes directories
+          file:
+            path: "{{ item }}"
+            state: directory
+          with_items:
+            - /etc/kubernetes/config
+            - /var/lib/kubernetes
+
+        - name: Download the official Kubernetes release binaries
+          get_url:
+            url: "https://storage.googleapis.com/kubernetes-release/release/{{ KUBER_VER }}/bin/linux/amd64/{{ item }}"
+            dest: "/usr/local/bin/{{ item }}"
+            mode: 0755
+          with_items:
+            - kube-apiserver
+            - kube-controller-manager
+            - kube-scheduler
+            - kubectl
+
+        - name: Copy certificates, private keys and encryption confg to Kubernetes API server
+          copy:
+            src: "{{ item }}"
+            dest: "/var/lib/kubernetes/{{ item }}"
+          notify:
+            - 'restart kube-apiserver'
+            - 'restart kube-controller-manager'
+            - 'restart kube-scheduler'
+          with_items:
+            - ca.pem
+            - ca-key.pem
+            - kubernetes-key.pem
+            - kubernetes.pem
+            - service-account-key.pem
+            - service-account.pem
+            - encryption-config.yaml
+          no_log: true
+
+        - name: Create the kube-apiserver.service systemd unit file
+          script: 08_01-kube-apiserver.service.sh
+          notify: restart kube-apiserver
+
+        - name: Create kube-controller-manager kubeconfig
+          script: 08_02-kube-controller-manager.kubeconfig.sh
+
+        - name: Create the kube-controller-manager.service systemd unit file
+          script: 08_03-kube-controller-manager.service.sh
+          notify: restart kube-controller-manager
+
+        - name: Copy kube-scheduler kubeconfig
+          copy:
+            src: kube-scheduler.kubeconfig
+            dest: /var/lib/kubernetes/kube-scheduler.kubeconfig
+
+        - name: Copy kube-scheduler yaml config
+          script: 08_04-kube-scheduler.yaml.sh
+          notify: restart kube-scheduler
+
+        - name: Create the kube-scheduler.service systemd unit file
+          script: 08_05-kube-scheduler.service.sh
+          notify: restart kube-scheduler
+
+        - name: Install nginx
+          apt:
+            name: nginx
+            cache_valid_time: 86400
+
+        - name: Create basic web server config to handle HTTP health checks
+          script: 08_06-kubernetes.default.svc.cluster.local.sh
+          notify:
+            - 'enable http health checks'
+            - 'restart nginx'
+      become: true
+
+    - name: Flush handlers here, because we need started services before continue
+      meta: flush_handlers
+
+    - name: Wait minute while services started
+      pause:
+        minutes: 2
+
+    - name: Create kube-apiserver-to-kubelet yaml configuration files
+      script: 08_07-kube-apiserver-to-kubelet.sh
+      args:
+        chdir: "{{ home_dir }}"
+
+    - name: Create the kube-apiserver-to-kubelet ClusterRole with permissions to access the Kubelet API
+      command: kubectl apply --kubeconfig admin.kubeconfig -f kube_apiserver_to_kubelet_role.yaml
+      args:
+        chdir: "{{ home_dir }}"
+      register: kubelet_role_status
+      changed_when: kubelet_role_status.stdout == 'clusterrole.rbac.authorization.k8s.io/system:kube-apiserver-to-kubelet created'
+      run_once: true
+
+    - name: Bind the system:kube-apiserver-to-kubelet ClusterRole to the kubernetes user
+      command: kubectl apply --kubeconfig admin.kubeconfig -f kube_apiserver_to_kubelet_role_binding.yaml
+      register: kubelet_role_binding_status
+      args:
+        chdir: "{{ home_dir }}"
+      changed_when: kubelet_role_binding_status.stdout == 'clusterrolebinding.rbac.authorization.k8s.io/system:kube-apiserver created'
+      run_once: true
+
+  handlers:
+
+    - name: restart kube-apiserver
+      systemd:
+        name: kube-apiserver.service
+        enabled: yes
+        daemon_reload: yes
+        state: restarted
+      become: true
+
+    - name: restart kube-controller-manager
+      systemd:
+        name: kube-controller-manager.service
+        enabled: yes
+        daemon_reload: yes
+        state: restarted
+      become: true
+
+    - name: restart kube-scheduler
+      systemd:
+        name: kube-scheduler.service
+        enabled: yes
+        daemon_reload: yes
+        state: restarted
+      become: true
+
+    - name: enable http health checks
+      file:
+        src: /etc/nginx/sites-available/kubernetes.default.svc.cluster.local
+        dest: /etc/nginx/sites-enabled/kubernetes.default.svc.cluster.local
+        state: link
+      become: true
+
+    - name: restart nginx
+      service:
+        name: nginx
+        state: restarted
+        enabled: yes
+      become: true
