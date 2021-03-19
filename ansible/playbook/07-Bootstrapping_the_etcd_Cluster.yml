@@ -1,0 +1,55 @@
+---
+- name: Bootstrapping the etcd Cluster
+  gather_facts: no
+  become: true
+  hosts: controllers
+
+  vars:
+    ETCD_VER: v3.3.13
+
+  tasks:
+
+    - name: Install etcd
+      block:
+      - name: Download the official etcd release binaries from the coreos/etcd GitHub project
+        unarchive:
+          src: "https://github.com/coreos/etcd/releases/download/{{ ETCD_VER }}/etcd-{{ ETCD_VER }}-linux-amd64.tar.gz"
+          dest: /usr/local/bin
+          extra_opts: ['--strip-components=1', 'etcd-{{ ETCD_VER }}-linux-amd64/etcdctl', 'etcd-{{ ETCD_VER }}-linux-amd64/etcd']
+          remote_src: yes
+          mode: 0755
+        notify: restart etcd
+
+      - name: Create etcd directories
+        file:
+          path: "{{ item }}"
+          state: directory
+        with_items:
+          - /etc/etcd
+          - /var/lib/etcd
+        notify: restart etcd
+
+      - name: Copy certificates and private keys to etcd node
+        copy:
+          src: "{{ item }}"
+          dest: "/etc/etcd/{{ item }}"
+        with_items:
+          - ca.pem
+          - kubernetes-key.pem
+          - kubernetes.pem
+        notify: restart etcd
+
+      - name: Create the etcd.service systemd unit file
+        script: 07-etcd.service.sh
+        notify: restart etcd
+      become: true
+
+  handlers:
+
+    - name: restart etcd
+      systemd:
+         name: etcd.service
+         enabled: yes
+         daemon_reload: yes
+         state: restarted
+      become: true

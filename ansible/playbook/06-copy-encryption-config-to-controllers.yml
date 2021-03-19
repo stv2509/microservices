@@ -1,0 +1,16 @@
+---
+- name: Copy the encryption-config.yaml encryption config file to each controller instance
+  gather_facts: no
+  become: true
+  hosts: controllers
+
+  tasks:
+
+  - name: Copy the encryption-config.yaml encryption config file to each controller instance
+    copy:
+      src: "{{ item }}"
+      dest: "/home/vagrant/{{ item }}"
+      owner: vagrant
+      group: vagrant
+    with_items:
+      - encryption-config.yaml

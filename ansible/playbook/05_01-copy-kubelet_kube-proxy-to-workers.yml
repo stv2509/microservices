@@ -1,0 +1,17 @@
+---
+- name: Copy the appropriate kubelet and kube-proxy kubeconfig files to each worker instance
+  gather_facts: no
+  become: true
+  hosts: workers
+
+  tasks:
+
+  - name: Copy the appropriate kubelet and kube-proxy kubeconfig files to each worker instance
+    copy:
+      src: "{{ item }}"
+      dest: "/home/vagrant/{{ item }}"
+      owner: vagrant
+      group: vagrant
+    with_items:
+      - "{{ inventory_hostname }}.kubeconfig"
+      - kube-proxy.kubeconfig

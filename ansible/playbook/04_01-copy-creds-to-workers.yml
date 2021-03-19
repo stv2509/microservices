@@ -1,0 +1,18 @@
+---
+- name: Copy the appropriate certificates and private keys to each worker instance
+  gather_facts: no
+  become: true
+  hosts: workers
+
+  tasks:
+
+  - name: Copy the appropriate certificates and private keys to each worker instance
+    copy:
+      src: "{{ item }}"
+      dest: "/home/vagrant/{{ item }}"
+      owner: vagrant
+      group: vagrant
+    with_items:
+      - ca.pem
+      - "{{ inventory_hostname }}-key.pem"
+      - "{{ inventory_hostname }}.pem"

@@ -5,7 +5,6 @@
 *.tfvars
 .terraform
 geerlingguy.docker
-reddit
 .env
 tls.*
 Gitlab_ci/
