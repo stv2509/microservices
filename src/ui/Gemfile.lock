@@ -35,7 +35,7 @@ GEM
     puma (3.12.6)
     quantile (0.2.1)
     raabro (1.1.6)
-    rack (2.1.4)
+    rack (2.1.4.1)
     rack-protection (2.0.4)
       rack
     rufus-scheduler (3.5.2)
